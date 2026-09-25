@@ -11,6 +11,26 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dir: ifs
+            dist: pressit
+          - dir: metacog
+            dist: frontface-metacog
+          - dir: flashy
+            dist: frontface-flashy
+          - dir: memdate
+            dist: memdate
+          - dir: meminqu
+            dist: meminqu
+          - dir: probe-forge
+            dist: fairit
+          - dir: audit
+            dist: postmo
+          - dir: proofit
+            dist: frontface-proofit
+    environment: ${{ matrix.dist }}
     steps:
       - uses: actions/checkout@v4
 
@@ -18,14 +38,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Build all eight packages
+      - name: Build the package
         run: |
           pip install build
-          mkdir -p dist
-          for d in ifs metacog flashy memdate meminqu probe-forge audit proofit; do
-            (cd "$d" && python -m build --outdir ../dist/)
-          done
-          ls dist/
+          cd ${{ matrix.dir }} && python -m build --outdir ../dist/
+          ls ../dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
