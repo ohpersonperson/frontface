@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "proofit"
+name = "frontface-proofit"
 version = "1.0.0"
 description = "Fail-closed linter for locked-down runbooks: ten rules of workflow discipline as code"
 readme = "README.md"
@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ohpersonperson/skill-suite"
+Homepage = "https://github.com/ohpersonperson/frontface"
 
 [project.scripts]
 proofit = "proofit.__main__:main"

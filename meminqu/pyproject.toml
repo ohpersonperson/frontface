@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ohpersonperson/skill-suite"
+Homepage = "https://github.com/ohpersonperson/frontface"
 
 [tool.setuptools.packages.find]
 where = ["src"]

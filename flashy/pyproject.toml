@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flashy"
+name = "frontface-flashy"
 version = "1.0.0"
 description = "Persistent execution discipline for long tasks: lock the objective, track milestones, detect drift and artificial stops, verify before done"
 readme = "README.md"
@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ohpersonperson/skill-suite"
+Homepage = "https://github.com/ohpersonperson/frontface"
 
 [tool.setuptools.packages.find]
 where = ["src"]
