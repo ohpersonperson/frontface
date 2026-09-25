@@ -41,3 +41,9 @@ PYTHONPATH="meminqu/src:memdate/src" python -m pytest meminqu/tests/ -q
 These are the front-facing conversions of a private skill suite — decoupled
 from the original context, renamed in plain language, and carrying no
 private material. What's here stands on its own.
+
+## Coming next
+
+I'm working on a webapp/UI for frontface. The goal is to make these tools
+easier to explore and use through a practical browser-based interface.
+More details coming soon.
