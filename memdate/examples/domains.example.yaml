@@ -1,0 +1,9 @@
+# memory config — example
+# Only 'key: value' and 'key:' + '- item' lines are supported.
+root: /tmp/memo
+domains:
+  - personal
+  - work
+  - projects
+  - reference
+  - misc

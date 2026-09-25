@@ -1,0 +1,5 @@
+# Design question for Ryan — proofit conversion
+
+**The question:** proofit is currently a prose-only protocol (10 rules for locking down a free-tier, multi-service workflow before execution — remove every assumption, one action per step, verify after every milestone, specify routing upfront). There is no code to port, so the code deliverable has to be designed. Should it be **(a) a linter** — feed it a runbook draft, it flags missing prerequisites, two-action steps, milestones without verification, and unstated routing decisions, failing the draft until fixed — or **(b) a generator** — feed it a loose workflow description, it emits the locked-down runbook skeleton (prerequisites section, one-action steps, verify-after-milestone slots, routing spec templates) for you to fill in?
+
+**The trade:** the linter is the smaller build and testable immediately against sample runbooks; the generator is the bigger build and needs the linter's rules defined first anyway. Recommendation is linter-first, generator later if the linter proves its worth — but it's your call.

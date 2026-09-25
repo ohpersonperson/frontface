@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meminqu"
+version = "1.0.0"
+description = "Guided capture interviews for a memory store: seven question registers, rotating across domains, answers captured verbatim through memdate's pure CAPTURE rules"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = ["memdate"]
+authors = [{ name = "Ryan Wesley Hitchcock" }]
+keywords = ["memory", "interview", "capture", "knowledge-management", "journaling"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/ohpersonperson/skill-suite"
+
+[tool.setuptools.packages.find]
+where = ["src"]

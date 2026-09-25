@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "memdate"
+version = "1.0.0"
+description = "File-based memory system with a hard CAPTURE/DISTILL split: raw records are append-only evidence, distilled files are derived synthesis, and a cross-domain index keeps the connective tissue current"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Ryan Wesley Hitchcock" }]
+keywords = ["memory", "knowledge-management", "journaling", "capture", "distillation", "markdown"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/ohpersonperson/skill-suite"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

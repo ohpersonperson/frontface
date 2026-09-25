@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metacog"
+version = "1.0.0"
+description = "Five-step reasoning pressure test: trigger thresholds, steelman countermodel, load-bearing assumptions, collision, confidence revision"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Ryan Wesley Hitchcock" }]
+keywords = ["reasoning", "metacognition", "red-teaming", "confidence", "decision-analysis"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/ohpersonperson/skill-suite"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

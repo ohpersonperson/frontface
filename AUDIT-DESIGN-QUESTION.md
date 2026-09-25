@@ -1,0 +1,5 @@
+# Design question for Ryan — forensic-situational-audit conversion
+
+**The question:** the skill says its output is "conversational, not a rigid template," but as an overlay it also emits an audit record (which disciplines were enforced, corrections typed, softening caught). The front-facing version needs both a human conversation and a machine-readable record — so how structured should the record be? **(a) Minimal** — a checklist with timestamps: which of the five disciplines fired, corrections typed as detail-vs-core, softening flags caught; or **(b) full** — the held tensions, time-indexed person-state sequences, correction types, and softening flags all as structured data the next session can load and continue from.
+
+**The trade:** minimal stays out of the conversation's way and is cheaper to build; full makes multi-session tracking real but risks turning the conversation into form-filling. Recommendation is (b) for the record with the conversation kept human — record for the machine, prose for the person — but it's your call.
