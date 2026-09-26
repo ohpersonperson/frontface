@@ -193,5 +193,51 @@ class FrontmatterTests(unittest.TestCase):
             fm.require({"a": 1}, "a", "b", what="test doc")
 
 
+class LocalAdapterConcurrencyTests(unittest.TestCase):
+    """PARAM-MEM-004: writes are atomic, appends don't interleave."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = LocalFilesystemAdapter(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_concurrent_appends_do_not_interleave(self):
+        import threading
+
+        lines = [f"line-{i:03d}\n" for i in range(50)]
+        threads = [
+            threading.Thread(target=self.store.append, args=("log.md", line))
+            for line in lines
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        body = self.store.read("log.md")
+        self.assertEqual(sorted(body.splitlines(keepends=True)), sorted(lines))
+
+    def test_concurrent_writes_never_mix(self):
+        import threading
+
+        values = [f"value-{i:03d}-" + "x" * 100 for i in range(20)]
+        threads = [
+            threading.Thread(target=self.store.write, args=("f.txt", v))
+            for v in values
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        # Atomic rename: final content is exactly one writer's value,
+        # never a splice of two.
+        self.assertIn(self.store.read("f.txt"), values)
+
+    def test_list_files_hides_lock_sidecars(self):
+        self.store.write("d/a.txt", "x")
+        self.assertEqual(self.store.list_files("d"), ["a.txt"])
+
+
 if __name__ == "__main__":
     unittest.main()

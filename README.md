@@ -19,6 +19,16 @@ no build step. Each one does one job.
 Each package is self-contained: `src/`, `tests/`, `examples/`, `README.md`,
 `CHANGELOG.md`, `pyproject.toml`, `LICENSE` (MIT).
 
+## What frontface is not (yet)
+
+The eight packages don't talk to each other. There is no shared protocol,
+no common record format, no adapter layer, no runtime — each tool is an
+island that happens to live in the same repo (the one exception:
+`meminqu` reads `memdate` stores, a one-way import, not an interop layer).
+If the README ever implies otherwise, that's a bug in the README. Shared
+machinery between the tools is roadmap, not reality, and it will be
+labeled as such when it exists.
+
 ## Test
 
 ```bash

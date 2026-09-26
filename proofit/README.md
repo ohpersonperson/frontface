@@ -6,6 +6,11 @@ a runbook draft against ten rules of workflow discipline — and **rejects the
 draft if any rule is violated**. No warnings, no advisories. Fail-closed:
 exit 1 until it's fixed, exit 0 when it's locked down.
 
+It checks the runbook's **shape, not its truth**: it can tell you a step is
+missing its verification block, not whether the verification would actually
+work. A fully-specified unwise workflow passes; a wise but sloppy one doesn't.
+That distinction is the whole product — see the FAQ.
+
 No prerequisites. You don't need to know anything about this project's
 history or any framework. The mechanism is the whole product.
 
@@ -96,7 +101,14 @@ fixed draft passes).
 
 ## Inputs, outputs
 
-- **Input:** a runbook draft in Markdown following the template shape.
+- **Input:** a runbook draft in Markdown following the template shape
+  (`templates/runbook-template.md`, or print it with `python -m proofit
+  template`). Freeform Markdown is out of scope **by design, not by
+  accident**: the linter parses the template's sections, so a document that
+  isn't in the template shape fails wholesale on missing sections rather
+  than producing meaningful per-rule violations. Write it in the template,
+  get it checked — anything else isn't a bad runbook to proofit, it's not
+  a runbook at all.
 - **Output:** a list of violations (`RULE n [location] ERROR — message`
   plus a `fix:` line), and an exit code: 1 if any violation exists, 0 if
   clean. Fail-closed — there is no warning level.

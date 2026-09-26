@@ -12,10 +12,17 @@ separator.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import shutil
+import tempfile
 from abc import ABC, abstractmethod
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover — Windows has no fcntl
+    fcntl = None  # type: ignore[assignment]
 
 
 class StorageError(OSError):
@@ -84,14 +91,36 @@ class LocalFilesystemAdapter(StorageAdapter):
     def write(self, path: str, text: str) -> None:
         full = self._full(path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
-        with open(full, "w", encoding="utf-8") as f:
-            f.write(text)
+        # Atomic: write to a temp file in the same directory, fsync, then
+        # rename over the target. Readers never see a partial write, and
+        # concurrent writers serialize on the lock (last writer wins, but
+        # no interleaved garbage). PARAM-MEM-004.
+        with self._locked(full):
+            fd, tmp = tempfile.mkstemp(
+                dir=os.path.dirname(full), prefix=".tmp-write-"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(text)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp, full)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
 
     def append(self, path: str, text: str) -> None:
         full = self._full(path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
-        with open(full, "a", encoding="utf-8") as f:
-            f.write(text)
+        # Serialized on the lock so concurrent appends can't interleave.
+        with self._locked(full):
+            with open(full, "a", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+                os.fsync(f.fileno())
 
     def exists(self, path: str) -> bool:
         return os.path.exists(self._full(path))
@@ -104,6 +133,24 @@ class LocalFilesystemAdapter(StorageAdapter):
         os.makedirs(os.path.dirname(dst_full), exist_ok=True)
         shutil.move(src_full, dst_full)
 
+    @contextlib.contextmanager
+    def _locked(self, full: str):
+        """Exclusive advisory lock for one target file.
+
+        Sidecar ``<file>.lock``; no-op where ``fcntl`` is unavailable
+        (Windows). Lock files are hidden from :meth:`list_files`.
+        """
+        if fcntl is None:
+            yield
+            return
+        lock_path = full + ".lock"
+        with open(lock_path, "w", encoding="utf-8") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lf, fcntl.LOCK_UN)
+
     def list_files(self, path: str) -> list[str]:
         full = self._full(path)
         if not os.path.isdir(full):
@@ -111,6 +158,7 @@ class LocalFilesystemAdapter(StorageAdapter):
         return sorted(
             name for name in os.listdir(full)
             if os.path.isfile(os.path.join(full, name))
+            and not name.endswith(".lock")  # adapter bookkeeping, not data
         )
 
     def digest(self, path: str) -> str:
