@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from .protocol import SYSTEM_PROMPT, FieldInput, required_collision_pairs
+from .ledger import Ledger
 
 
 class EngineError(RuntimeError):
@@ -132,11 +133,33 @@ def run(field_input: FieldInput, backend: LLMBackend,
     try:
         raw = backend.complete(SYSTEM_PROMPT, user)
     except Exception as exc:  # backend errors surface as engine errors
+        _record_run(field_input.field, ok=False, artifact=None,
+                    error="backend")
         return RunResult(ok=False, error=f"Backend {backend.name} failed: {exc}")
     try:
         model = parse_model_json(raw)
         artifact = normalize(field_input.field, overlay=field_input.overlay,
                              prior_session=prior_session, model=model)
     except EngineError as exc:
+        _record_run(field_input.field, ok=False, artifact=None,
+                    error="normalize")
         return RunResult(ok=False, error=str(exc))
+    _record_run(field_input.field, ok=True, artifact=artifact,
+                overlay=field_input.overlay)
     return RunResult(ok=True, artifact=artifact)
+
+
+def _record_run(field: str, *, ok: bool, artifact: dict | None,
+                overlay: bool = False, error: str | None = None) -> None:
+    """One ledger row per interrogation: counts and digests, never the field."""
+    summary: dict = {"ok": ok, "overlay": overlay}
+    if artifact is not None:
+        summary.update({
+            "takes": len(artifact.get("takes", [])),
+            "collisions": len(artifact.get("collisions", [])),
+            "keys": len(artifact.get("keys", [])),
+            "session": artifact.get("meta", {}).get("session"),
+        })
+    if error:
+        summary["error"] = error
+    Ledger("pressit").record("pressure", summary, input_text=field)

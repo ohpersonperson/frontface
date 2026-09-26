@@ -21,6 +21,7 @@ from datetime import date, datetime, timezone
 
 from .disciplines import DISCIPLINES, discipline_name
 from .evidence import EvidenceItem
+from .ledger import Ledger
 from .scans import (
     Correction, HeldTension, MotiveFlag, PersonState, SofteningFlag,
 )
@@ -320,7 +321,7 @@ def parse(rendered: str) -> AuditRecord:
                 raise RecordError(f"Unparseable evidence line: {line!r}")
             evidence.append(EvidenceItem(text=m.group(2), tag=m.group(1)))
 
-    return AuditRecord(
+    rec = AuditRecord(
         case_name=match.group(1).strip(),
         tensions=tensions,
         states=states,
@@ -332,3 +333,20 @@ def parse(rendered: str) -> AuditRecord:
         lifecycle=front.get("lifecycle", "FINAL").strip() or "FINAL",
         record_date=front.get("date", "").strip() or date.today().isoformat(),
     )
+    Ledger("postmo").record(
+        "audit",
+        {
+            "lifecycle": rec.lifecycle,
+            "tensions": len(tensions),
+            "states": len(states),
+            "corrections": len(corrections),
+            "core_claim_changes": len(rec.core_claim_changes()),
+            "motive_flags": len(motive_flags),
+            "softening_flags": len(softening_flags),
+            "discipline_entries": len(discipline_log),
+            "disciplines_used": sorted({e.discipline for e in discipline_log}),
+            "evidence_items": len(evidence),
+        },
+        input_text=rendered,
+    )
+    return rec

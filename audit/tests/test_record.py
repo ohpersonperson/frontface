@@ -1,6 +1,11 @@
 """Tests for the audit record (record.py), the overlay contract, and evidence."""
 
+import os
+import tempfile
 import unittest
+
+# Isolate the ledger: test runs must not touch the user's real ledger.
+os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="postmo-test-")
 
 from postmo.disciplines import D1, D5
 from postmo.evidence import (

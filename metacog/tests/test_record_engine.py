@@ -1,7 +1,12 @@
 """Tests: collision-record schema/validation/render/parse, engine normalize."""
 
 import json
+import os
+import tempfile
 import unittest
+
+# Isolate the ledger: test runs must not touch the user's real ledger.
+os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="metacog-test-")
 
 from metacog.engine import (
     ReasoningInput, build_user_message, normalize, parse_model_json,

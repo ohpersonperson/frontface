@@ -1,7 +1,12 @@
 import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+
+# Isolate the ledger: test runs must not touch the user's real ledger.
+os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="pressit-test-")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 

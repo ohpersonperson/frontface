@@ -1,6 +1,11 @@
 """Tests: checkpoints/tokens, detectors, mission session."""
 
+import os
+import tempfile
 import unittest
+
+# Isolate the ledger: test runs must not touch the user's real ledger.
+os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="flashy-test-")
 
 from flashy.checkpoints import (
     Checkpoint, CheckpointError, make_resume_token, parse_resume_token,

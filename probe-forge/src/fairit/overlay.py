@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 
 from .dialects import DIALECTS, detect_markers
 from .evidence import OBFUSCATION, CLAIM, normalize_tag
+from .ledger import Ledger
 from .hypotheses import (
     H_OBFUSCATION,
     H_GENUINE,
@@ -131,6 +132,16 @@ def run_jargon_test(
         evidence=evidence,
         mechanisms=list(mechanisms or []),
         remaining_questions=list(remaining_questions or []),
+    )
+    Ledger("fairit").record(
+        "jargon_test",
+        {
+            "dialect": dialect,
+            "verdict": verdict,
+            "mechanisms": len(mechanisms or []),
+            "evidence_items": len(evidence),
+        },
+        input_text=phrase,
     )
     return JargonFlag(phrase=phrase, dialect=dialect, record=record)
 

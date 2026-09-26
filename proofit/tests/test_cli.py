@@ -2,13 +2,16 @@
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.normpath(os.path.join(HERE, ".."))
 EXAMPLES = os.path.join(PKG, "examples")
 
-ENV = dict(os.environ, PYTHONPATH=os.path.join(PKG, "src"))
+# Isolate the ledger: CLI test runs must not touch the user's real ledger.
+ENV = dict(os.environ, PYTHONPATH=os.path.join(PKG, "src"),
+           FRONTFACE_LEDGER_DIR=tempfile.mkdtemp(prefix="proofit-cli-test-"))
 
 
 def run_cli(*args):

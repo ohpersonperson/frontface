@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .checkpoints import Checkpoint, make_resume_token
+from .ledger import Ledger
 from .quality_gate import QualityGate
 from .state_machine import (
     BLOCKED, DONE, EXECUTING, LOCKED, PLANNING, VERIFYING,
@@ -53,6 +54,9 @@ class MissionSession:
         self.constraints: list[str] = []
         self.pending_decisions: list[str] = []
         self.risks: list[str] = []
+        self._ledger = Ledger("flashy")
+        self._ledger.record("session_start", {"slug": slug},
+                            input_text=objective)
 
     # -- planning -----------------------------------------------------------
 
@@ -86,6 +90,13 @@ class MissionSession:
         nxt = next((m for m in self.milestones if m.status == PENDING), None)
         if nxt is not None:
             nxt.status = ACTIVE
+        self._ledger.record(
+            "milestone",
+            {"slug": self.slug,
+             "completed": len(self.completed()),
+             "remaining": len(self.remaining())},
+            input_text=name,
+        )
 
     def descope(self, name: str) -> None:
         """Explicit user descope only — milestones never silently shrink."""
@@ -96,6 +107,13 @@ class MissionSession:
         nxt = next((m for m in self.milestones if m.status == PENDING), None)
         if nxt is not None and self.current_milestone is None:
             nxt.status = ACTIVE
+        self._ledger.record(
+            "descope",
+            {"slug": self.slug,
+             "completed": len(self.completed()),
+             "remaining": len(self.remaining())},
+            input_text=name,
+        )
 
     def remaining(self) -> list[str]:
         return [m.name for m in self.milestones

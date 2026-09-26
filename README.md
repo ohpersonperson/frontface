@@ -19,6 +19,24 @@ no build step. Each one does one job.
 Each package is self-contained: `src/`, `tests/`, `examples/`, `README.md`,
 `CHANGELOG.md`, `pyproject.toml`, `LICENSE` (MIT).
 
+## Ledgers
+
+The six stateless tools (`pressit`, `proofit`, `flashy`, `metacog`,
+`fairit`, `postmo`) keep a local append-only ledger of their own runs:
+`~/.frontface/<tool>/ledger.jsonl`. One JSON record per run — timestamps,
+counts, verdicts, confidence deltas. The ledger never stores your input
+text, only a SHA-256 digest of it: what happened and what kind, never
+the words. Each tool carries its own copy of the ledger module
+(`ledger.py`, vendored — no shared dependency). Opt out any time:
+
+```bash
+FRONTFACE_NO_LEDGER=1          # disable recording entirely
+FRONTFACE_LEDGER_DIR=/path    # move the ledgers somewhere else
+```
+
+`python -m proofit ledger [n]` prints the proofit ledger; for the
+library tools, `Ledger("<tool>").summary()` does the same in code.
+
 ## What frontface is not (yet)
 
 The eight packages don't talk to each other. There is no shared protocol,
@@ -44,7 +62,7 @@ memdate's shared core instead of duplicating it:
 PYTHONPATH="meminqu/src:memdate/src" python -m pytest meminqu/tests/ -q
 ```
 
-404 tests, all green, all offline.
+419 tests, all green, all offline.
 
 ## Note
 

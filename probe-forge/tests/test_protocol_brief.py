@@ -1,6 +1,11 @@
 """Tests for the probe protocol, the brief, and the end-to-end cycle."""
 
+import os
+import tempfile
 import unittest
+
+# Isolate the ledger: test runs must not touch the user's real ledger.
+os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="fairit-test-")
 
 from fairit.brief import AuditBrief, BriefError, check_stand_down, parse
 from fairit.dialects import detect_markers

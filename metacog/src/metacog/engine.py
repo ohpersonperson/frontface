@@ -29,6 +29,7 @@ from .protocol import (
     ProtocolError,
     apply_demotions,
 )
+from .ledger import Ledger
 from .record import CollisionRecord
 from .steelman import check_countermodel
 from .triggers import TriggerEvaluation
@@ -171,13 +172,41 @@ def run(inp: ReasoningInput, backend: LLMBackend) -> RunResult:
     try:
         raw = backend.complete(SYSTEM_PROMPT, user)
     except Exception as exc:  # backend errors surface as engine errors
+        _record_run(user, ok=False, record=None, error="backend")
         return RunResult(ok=False, error=f"Backend {backend.name} failed: {exc}")
     try:
         model = parse_model_json(raw)
         record = normalize(inp, model)
     except (EngineError, ProtocolError) as exc:
+        _record_run(user, ok=False, record=None, error="normalize")
         return RunResult(ok=False, error=str(exc))
+    _record_run(user, ok=True, record=record)
     return RunResult(ok=True, record=record)
+
+
+def _record_run(user: str, *, ok: bool, record: dict | None,
+               error: str | None = None) -> None:
+    """One ledger row per run: digests and deltas, never the reasoning text."""
+    summary: dict = {"ok": ok}
+    if record is not None:
+        assumptions = record.get("assumptions", [])
+        collisions = record.get("collisions", [])
+        summary.update({
+            "stand_down": record.get("stand_down", False),
+            "triggers": record.get("triggers", []),
+            "assumptions": len(assumptions),
+            "load_bearing": sum(1 for a in assumptions
+                                if a.get("kind") == "load-bearing"),
+            "collisions": len(collisions),
+            "broken": sum(1 for c in collisions
+                          if c.get("result") == "broken"),
+            "confidence_before": record.get("confidence_before"),
+            "confidence_after": record.get("confidence_after"),
+            "confidence_delta": record.get("confidence_delta"),
+        })
+    if error:
+        summary["error"] = error
+    Ledger("metacog").record("collision", summary, input_text=user)
 
 
 def to_collision_record(rec: dict) -> CollisionRecord:
