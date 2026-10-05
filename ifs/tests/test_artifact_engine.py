@@ -169,6 +169,50 @@ class TestEngine(unittest.TestCase):
         with self.assertRaises(engine.EngineError):
             engine.normalize("f", overlay=False, prior_session=None, model=bad)
 
+    def test_normalize_rejects_bad_key_classification(self):
+        # PARAM-PRESSIT-001: invalid enum value fails the Key contract.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][0]["classification"] = "BOGUS"
+        with self.assertRaises(engine.EngineError) as ctx:
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+        self.assertIn("classification", str(ctx.exception).lower())
+
+    def test_normalize_rejects_empty_key_component(self):
+        # PARAM-PRESSIT-001: empty mandatory component fails the Key contract.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][1]["evidence"] = "   "
+        with self.assertRaises(engine.EngineError) as ctx:
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+        self.assertIn("evidence", str(ctx.exception).lower())
+
+    def test_normalize_rejects_missing_key_component(self):
+        # PARAM-PRESSIT-001: a missing component fails as empty, not as a crash.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        del bad["keys"][2]["falsifier"]
+        with self.assertRaises(engine.EngineError):
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+
+    def test_normalize_rejects_null_key_component(self):
+        # PARAM-PRESSIT-001 (Grok 4.7 review): a present null is not a
+        # missing key — it must fail the contract, never crash with
+        # AttributeError inside validate_keys.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][0]["classification"] = None
+        bad["keys"][1]["confidence"] = 42
+        with self.assertRaises(engine.EngineError):
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+
+    def test_run_key_violation_surfaces_as_not_ok(self):
+        # PARAM-PRESSIT-001: run() converts the violation to ok=False.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][0]["confidence"] = "CERTAIN"
+        backend = backends.StubBackend(bad)
+        field = protocol.FieldInput(field="Test field")
+        result = engine.run(field, backend)
+        self.assertFalse(result.ok)
+        self.assertIsNone(result.artifact)
+        self.assertIn("confidence", result.error.lower())
+
     def test_run_end_to_end_with_stub(self):
         backend = backends.StubBackend(self.MODEL_JSON)
         field = protocol.FieldInput(field="Test field")

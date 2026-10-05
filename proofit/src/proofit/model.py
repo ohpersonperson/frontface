@@ -42,15 +42,41 @@ class Runbook:
     services: list = field(default_factory=list)  # list[ServiceSpec]
 
 
+# PARAM-PROOFIT-001: rule -> severity. Structural rules are ERROR
+# (fail-closed); heuristic (R1, R8) and convention (R5) are WARNING
+# (listed, never fail the draft unless --strict).
+ERROR = "ERROR"
+WARNING = "WARNING"
+SEVERITY_BY_RULE = {
+    1: WARNING,   # heuristic: assumptions
+    2: ERROR,     # structural: prerequisites
+    3: ERROR,     # structural: one action
+    4: ERROR,     # structural: concrete refs
+    5: WARNING,   # convention: terms
+    6: ERROR,     # structural: verification
+    7: ERROR,     # structural: recovery
+    8: WARNING,   # heuristic: state changes
+    9: ERROR,     # structural: routing
+    10: ERROR,   # structural: validation
+}
+
+
 @dataclass
 class Violation:
     rule: int
     location: str
     message: str
     fix: str
+    # Severity is derived from the rule, not passed — the map above is
+    # the adjudicated spec. An explicit value wins if ever given.
+    severity: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.severity:
+            self.severity = SEVERITY_BY_RULE.get(self.rule, ERROR)
 
     def render(self) -> str:
-        lines = [f"RULE {self.rule} [{self.location}] ERROR \u2014 {self.message}"]
+        lines = [f"RULE {self.rule} [{self.location}] {self.severity} \u2014 {self.message}"]
         if self.fix:
             lines.append(f"  fix: {self.fix}")
         return "\n".join(lines)
@@ -59,7 +85,20 @@ class Violation:
 @dataclass
 class LintResult:
     violations: list = field(default_factory=list)  # list[Violation]
+    # PARAM-PROOFIT-001: strict mode restores the old fail-on-anything
+    # behavior (the --strict CLI flag). Default is fail-closed on ERRORs.
+    strict: bool = False
+
+    @property
+    def errors(self) -> list:
+        return [v for v in self.violations if v.severity == ERROR]
+
+    @property
+    def warnings(self) -> list:
+        return [v for v in self.violations if v.severity == WARNING]
 
     @property
     def passed(self) -> bool:
-        return not self.violations
+        if self.strict:
+            return not self.violations
+        return not self.errors

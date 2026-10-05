@@ -49,5 +49,87 @@ class TestCLI(unittest.TestCase):
         self.assertIn("lint", r.stdout)
 
 
+# PARAM-PROOFIT-001: WARNINGs pass by default, fail under --strict;
+# ERRORs fail in both modes.
+R1_ONLY = """# Runbook: test
+
+## Ground Rules & Prerequisites
+
+### Required Baseline
+
+Starting state: clean machine.
+
+### Needed Tools/Items
+
+- Hardware: a laptop
+- Software: a browser
+- Accounts: a free account
+- Permissions: write access to ~/out/
+- Files: ~/in/data.csv
+- Internet access: required throughout
+- Free-tier limits: 100 requests per day
+
+### Expected Outcome
+
+A report exists.
+
+## Step-by-Step Directives
+
+### Step 1: Do the thing
+
+**Do:** Press Continue.
+
+**Look for:** The results panel.
+
+**Verify:** The panel displays the report.
+
+**If wrong:** Nothing loads.
+
+**Fix:** Click **Go** again.
+
+## Validation & Closure
+
+### Success Condition
+
+The report exists at ~/out/report.md.
+
+### Consistency Checkpoints
+
+- [ ] The input met the spec.
+- [ ] The workflow produced the intended result.
+"""
+
+R3_ONLY = R1_ONLY.replace("**Do:** Press Continue.",
+                          "**Do:** Click the **Go** button and export the report.")
+
+
+class TestSeverityCLI(unittest.TestCase):
+    def _write(self, content):
+        tmp = tempfile.NamedTemporaryFile("w", suffix=".md", delete=False)
+        tmp.write(content)
+        tmp.close()
+        self.addCleanup(os.unlink, tmp.name)
+        return tmp.name
+
+    def test_warnings_only_exit_0_by_default(self):
+        r = run_cli("lint", self._write(R1_ONLY))
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("WARNING", r.stdout)
+        self.assertIn("WARNINGS", r.stdout)
+
+    def test_warnings_only_exit_1_with_strict(self):
+        r = run_cli("lint", "--strict", self._write(R1_ONLY))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("REJECTED", r.stdout)
+
+    def test_errors_exit_1_in_both_modes(self):
+        path = self._write(R3_ONLY)
+        for args in (("lint", path), ("lint", "--strict", path)):
+            r = run_cli(*args)
+            self.assertEqual(r.returncode, 1, args)
+            self.assertIn("REJECTED", r.stdout)
+            self.assertIn("ERROR", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

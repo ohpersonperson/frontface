@@ -6,16 +6,16 @@ from .model import LintResult
 from .parser import parse
 
 
-def lint_text(markdown: str) -> LintResult:
+def lint_text(markdown: str, *, strict: bool = False) -> LintResult:
     runbook = parse(markdown)
     violations = []
     for check in ALL_CHECKS:
         violations.extend(check(runbook))
     # deterministic order: rule number, then location
     violations.sort(key=lambda v: (v.rule, v.location))
-    return LintResult(violations=violations)
+    return LintResult(violations=violations, strict=strict)
 
 
-def lint_file(path: str) -> LintResult:
+def lint_file(path: str, *, strict: bool = False) -> LintResult:
     with open(path, encoding="utf-8") as f:
-        return lint_text(f.read())
+        return lint_text(f.read(), strict=strict)

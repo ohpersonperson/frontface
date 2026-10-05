@@ -1,6 +1,8 @@
 """CLI: python -m proofit lint runbook.md | python -m proofit template
 
-Fail-closed: any violation rejects the draft (exit 1). Clean drafts pass (exit 0).
+Fail-closed on ERRORs: any structural violation rejects the draft (exit 1).
+WARNINGs (heuristic/convention rules) are listed but don't fail the draft —
+unless --strict is passed, which restores fail-on-anything.
 """
 from __future__ import annotations
 
@@ -16,9 +18,9 @@ def _template_path() -> str:
     return os.path.normpath(os.path.join(here, "..", "..", "templates", "runbook-template.md"))
 
 
-def cmd_lint(path: str) -> int:
+def cmd_lint(path: str, *, strict: bool = False) -> int:
     try:
-        result = lint_file(path)
+        result = lint_file(path, strict=strict)
     except FileNotFoundError:
         print(f"error: file not found: {path}", file=sys.stderr)
         return 2
@@ -26,14 +28,20 @@ def cmd_lint(path: str) -> int:
         print(f"error: cannot read {path}: {e}", file=sys.stderr)
         return 2
     _record_lint(path, result)
-    if result.passed:
-        print("PASS: no violations — the runbook is locked down.")
-        return 0
     for v in result.violations:
         print(v.render())
-    n = len(result.violations)
-    print(f"\nREJECTED: {n} violation{'s' if n != 1 else ''} — fix and re-run.")
-    return 1
+    if not result.passed:
+        # errors, or (strict mode and warnings)
+        n = len(result.violations)
+        print(f"\nREJECTED: {n} violation{'s' if n != 1 else ''} — fix and re-run.")
+        return 1
+    if result.warnings:
+        n = len(result.warnings)
+        print(f"\nWARNINGS: {n} warning{'s' if n != 1 else ''} — pass "
+              f"(warnings don't fail the draft; use --strict to fail on them).")
+        return 0
+    print("PASS: no violations — the runbook is locked down.")
+    return 0
 
 
 def _record_lint(path: str, result) -> None:
@@ -96,12 +104,20 @@ def main(argv: list[str] | None = None) -> int:
     if not argv or argv[0] in ("-h", "--help", "help"):
         print(f"proofit {__version__} — fail-closed runbook linter")
         print("usage:")
-        print("  python -m proofit lint <runbook.md>   check a draft; exit 1 on any violation")
+        print("  python -m proofit lint [--strict] <runbook.md>")
+        print("      check a draft; ERRORs reject (exit 1), WARNINGs pass unless --strict")
         print("  python -m proofit template            print the blank runbook template")
         print("  python -m proofit ledger [n]          show the local lint ledger (last n, default 5)")
         return 0
-    if argv[0] == "lint" and len(argv) == 2:
-        return cmd_lint(argv[1])
+    if argv[0] == "lint" and len(argv) in (2, 3):
+        args = argv[1:]
+        strict = "--strict" in args
+        paths = [a for a in args if a != "--strict"]
+        if len(paths) != 1:
+            print("usage: python -m proofit lint [--strict] <runbook.md>",
+                  file=sys.stderr)
+            return 2
+        return cmd_lint(paths[0], strict=strict)
     if argv[0] == "template" and len(argv) == 1:
         return cmd_template()
     if argv[0] == "ledger":

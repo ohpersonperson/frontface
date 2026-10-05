@@ -20,12 +20,24 @@ import json
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from .protocol import SYSTEM_PROMPT, FieldInput, required_collision_pairs
+from .protocol import (SYSTEM_PROMPT, FieldInput, KeyDraft, ProtocolError,
+                      required_collision_pairs, validate_keys)
 from .ledger import Ledger
 
 
 class EngineError(RuntimeError):
     """The model call failed or returned an unreadable artifact."""
+
+
+def _s(value) -> str:
+    """Coerce a model-supplied component to str.
+
+    Model JSON is untrusted: a present null/number/list is not a missing
+    key, so dict.get's default never fires for it. Non-strings become ""
+    so they fail the Key contract as empty — never as an AttributeError
+    inside validate_keys (PARAM-PRESSIT-001 review finding).
+    """
+    return value if isinstance(value, str) else ""
 
 
 @runtime_checkable
@@ -75,6 +87,9 @@ def normalize(field_text: str, *, overlay: bool, prior_session: int | None,
 
     Enforces the hard limits in code: valid Take ids, required collision
     pairs only, at most 5 Keys, probe dropped unless the overlay is on.
+    Every Key is walked through the protocol's validate_keys contract
+    (PARAM-PRESSIT-001): an invalid enum value or an empty mandatory
+    component raises EngineError, which run() surfaces as ok=False.
     """
     takes = [t for t in model.get("takes", []) if t.get("id") in ("A", "B", "C")]
     if len(takes) < 2:
@@ -90,6 +105,26 @@ def normalize(field_text: str, *, overlay: bool, prior_session: int | None,
         raise EngineError(
             f"The engine returned only {len(keys)} Keys; the protocol requires 3-5."
         )
+    # PARAM-PRESSIT-001: the Key contract is not optional. Convert the raw
+    # model dicts to KeyDrafts (_s coerces non-strings to "" so every
+    # bad component fails as empty, never as an AttributeError) and
+    # enforce classification / confidence enums plus non-empty mandatory
+    # components.
+    drafts = [
+        KeyDraft(
+            statement=_s(k.get("statement")),
+            classification=_s(k.get("classification")),
+            evidence=_s(k.get("evidence")),
+            confidence=_s(k.get("confidence")),
+            vulnerability=_s(k.get("vulnerability")),
+            falsifier=_s(k.get("falsifier")),
+        )
+        for k in keys
+    ]
+    try:
+        validate_keys(drafts)
+    except ProtocolError as exc:
+        raise EngineError(f"Key contract violation: {exc}") from exc
     meta = model.get("meta", {})
     probe = model.get("probe") if overlay else None
 
