@@ -42,6 +42,7 @@ from .hypotheses import (
     DiscriminatingEvidence,
     HypothesisRecord,
     Mechanism,
+    OriginType,
 )
 
 
@@ -105,17 +106,31 @@ def run_jargon_test(
     """
     has_obf = bool(evidence_for_obfuscation.strip())
     has_gen = bool(evidence_for_genuine.strip())
+    # Evidence strings here are operator-supplied: the honest claimed
+    # origin is operator paraphrase (PARAM-FAIRIT-001).
     if has_obf and not has_gen:
         verdict = H_OBFUSCATION
-        evidence = [DiscriminatingEvidence(evidence_for_obfuscation, H_OBFUSCATION)]
+        evidence = [DiscriminatingEvidence(
+            evidence_for_obfuscation, H_OBFUSCATION,
+            origin_type=OriginType.OPERATOR_PARAPHRASE,
+        )]
     elif has_gen and not has_obf:
         verdict = H_GENUINE
-        evidence = [DiscriminatingEvidence(evidence_for_genuine, H_GENUINE)]
+        evidence = [DiscriminatingEvidence(
+            evidence_for_genuine, H_GENUINE,
+            origin_type=OriginType.OPERATOR_PARAPHRASE,
+        )]
     elif has_obf and has_gen:
         verdict = H_BOTH
         evidence = [
-            DiscriminatingEvidence(evidence_for_obfuscation, H_OBFUSCATION),
-            DiscriminatingEvidence(evidence_for_genuine, H_GENUINE),
+            DiscriminatingEvidence(
+                evidence_for_obfuscation, H_OBFUSCATION,
+                origin_type=OriginType.OPERATOR_PARAPHRASE,
+            ),
+            DiscriminatingEvidence(
+                evidence_for_genuine, H_GENUINE,
+                origin_type=OriginType.OPERATOR_PARAPHRASE,
+            ),
         ]
     else:
         verdict = INSUFFICIENT_EVIDENCE

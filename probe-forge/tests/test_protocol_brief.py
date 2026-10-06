@@ -18,6 +18,7 @@ from fairit.hypotheses import (
     DiscriminatingEvidence,
     HypothesisRecord,
     Mechanism,
+    OriginType,
 )
 from fairit.overlay import (
     ProbeError,
@@ -100,7 +101,8 @@ class TestEvidenceTagging(unittest.TestCase):
             verdict=H_OBFUSCATION,
             evidence=[DiscriminatingEvidence(
                 "passive phrasing only in public, named actors in private",
-                H_OBFUSCATION)],
+                H_OBFUSCATION,
+                origin_type=OriginType.INDEPENDENT_OBSERVATION)],
             mechanisms=[Mechanism("passive-voice dodge", "supported")],
         )
 
@@ -110,7 +112,9 @@ class TestEvidenceTagging(unittest.TestCase):
     def test_genuine_stays_claim(self):
         r = HypothesisRecord(
             candidate="X", verdict=H_GENUINE,
-            evidence=[DiscriminatingEvidence("followed by named apology", H_GENUINE)],
+            evidence=[DiscriminatingEvidence(
+                "followed by named apology", H_GENUINE,
+                origin_type=OriginType.INDEPENDENT_OBSERVATION)],
         )
         self.assertEqual(evidence_tag_for(r), "CLAIM")
 
@@ -133,7 +137,9 @@ class TestBrief(unittest.TestCase):
             candidate="the redaction dodges responsibility for the delay",
             verdict=H_OBFUSCATION,
             evidence=[DiscriminatingEvidence(
-                "redactions cover exactly the decision-makers' names", H_OBFUSCATION)],
+                "redactions cover exactly the decision-makers' names",
+                H_OBFUSCATION,
+                origin_type=OriginType.INDEPENDENT_OBSERVATION)],
             mechanisms=[Mechanism("selective redaction", "supported")],
         )
         return AuditBrief(case_name="memo redactions", ground=ground,
