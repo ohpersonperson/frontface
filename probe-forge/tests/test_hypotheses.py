@@ -1,12 +1,14 @@
 """Tests for the shared hypothesis-testing core."""
 
 import unittest
+import warnings
 
 from fairit.hypotheses import (
     H_BOTH,
     H_GENUINE,
     H_OBFUSCATION,
     INSUFFICIENT_EVIDENCE,
+    CategoryGateDeclinedWarning,
     CategoryPresumptionError,
     DiscriminatingEvidence,
     HypothesisError,
@@ -119,6 +121,44 @@ class TestCategoryPresumption(unittest.TestCase):
     def test_bad_direction_rejected(self):
         with self.assertRaises(HypothesisError):
             DiscriminatingEvidence("something", "H-maybe")
+
+
+class TestGateDeclineSurfaced(unittest.TestCase):
+    """PARAM-FAIRIT-002: gate declines are visible, not silent."""
+
+    def test_decline_emits_warning_naming_phrase_and_result(self):
+        # "uses therapy-speak constantly" evades the two-word tripwire
+        # ("constantly" is not a stopword) — the gate declines, and the
+        # decline must be surfaced, not silent.
+        phrase = "uses therapy-speak constantly"
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            DiscriminatingEvidence(phrase, H_OBFUSCATION)
+        self.assertEqual(len(caught), 1)
+        self.assertTrue(
+            issubclass(caught[0].category, CategoryGateDeclinedWarning)
+        )
+        message = str(caught[0].message)
+        self.assertIn(phrase, message)
+        self.assertIn("declined", message)
+
+    def test_legitimate_evidence_also_consulted(self):
+        # The gate is consulted for every phrase; a real observation
+        # passes with a decline warning as its audit record.
+        phrase = "the passive phrasing appears only in the public statement"
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            e = DiscriminatingEvidence(phrase, H_OBFUSCATION)
+        self.assertEqual(e.favors, H_OBFUSCATION)
+        self.assertEqual(len(caught), 1)
+        self.assertIn(phrase, str(caught[0].message))
+
+    def test_fire_still_raises(self):
+        # The existing CategoryPresumptionError path is unchanged.
+        with self.assertRaises(CategoryPresumptionError):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                DiscriminatingEvidence("therapy-speak", H_OBFUSCATION)
 
 
 class TestObfuscationGate(unittest.TestCase):

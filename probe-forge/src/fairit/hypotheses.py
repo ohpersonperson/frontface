@@ -22,6 +22,7 @@ on category alone is rejected.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 H_OBFUSCATION = "H-obfuscation"
@@ -46,6 +47,16 @@ class CategoryPresumptionError(HypothesisError):
     obfuscation. This error is that failure mode, made impossible in code:
     "therapy-speak" by itself, with no observation attached, is not
     discriminating evidence of anything.
+    """
+
+
+class CategoryGateDeclinedWarning(UserWarning):
+    """The category-only tripwire was consulted and declined to fire.
+
+    Emitted for every evidence phrase the gate lets through, carrying
+    the phrase and the tripwire result — so the consultation is
+    auditable instead of silent. The heuristic stays narrow by design;
+    this warning is its visibility, not a claim of completeness.
     """
 
 
@@ -117,6 +128,18 @@ class DiscriminatingEvidence:
                 "Attach an observation — what was said, done, or omitted, "
                 "and what would differ between the hypotheses."
             )
+        # The gate was consulted and declined: surface it. Silent
+        # pass-through becomes an auditable warning carrying the phrase
+        # and the tripwire result. (stacklevel=3: warn() <- __post_init__
+        # <- the dataclass-generated __init__ <- the constructing caller.)
+        warnings.warn(
+            CategoryGateDeclinedWarning(
+                f"looks_category_only gate declined for phrase {self.text!r}: "
+                "tripwire result=False — phrase passed as evidence. "
+                "The gate was consulted; this warning is the audit record."
+            ),
+            stacklevel=3,
+        )
 
 
 @dataclass(frozen=True)
