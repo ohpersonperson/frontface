@@ -131,5 +131,36 @@ class TestSeverityCLI(unittest.TestCase):
             self.assertIn("ERROR", r.stdout)
 
 
+# PARAM-PROOFIT-002: sanctioned, auditable waiver via CLI.
+R3_WAIVED = R3_ONLY + "\n# waiver(3): the click and the export are one operator gesture\n"
+R3_WAIVER_NOREASON = R3_ONLY + "\n# waiver(3):\n"
+
+
+class TestWaiverCLI(unittest.TestCase):
+    def _write(self, content):
+        tmp = tempfile.NamedTemporaryFile("w", suffix=".md", delete=False)
+        tmp.write(content)
+        tmp.close()
+        self.addCleanup(os.unlink, tmp.name)
+        return tmp.name
+
+    def test_waiver_exits_0_reason_visible(self):
+        for args in (("lint",), ("lint", "--strict")):
+            r = run_cli(*args, self._write(R3_WAIVED))
+            self.assertEqual(r.returncode, 0, args)
+            self.assertIn("WAIVER", r.stdout)
+            self.assertIn("one operator gesture", r.stdout)
+
+    def test_no_waiver_exits_1(self):
+        r = run_cli("lint", self._write(R3_ONLY))
+        self.assertEqual(r.returncode, 1)
+
+    def test_waiver_without_reason_exits_1(self):
+        r = run_cli("lint", self._write(R3_WAIVER_NOREASON))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("REJECTED", r.stdout)
+        self.assertIn("INVALID", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

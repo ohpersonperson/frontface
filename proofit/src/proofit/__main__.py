@@ -28,13 +28,17 @@ def cmd_lint(path: str, *, strict: bool = False) -> int:
         print(f"error: cannot read {path}: {e}", file=sys.stderr)
         return 2
     _record_lint(path, result)
-    for v in result.violations:
-        print(v.render())
+    print(result.render())
     if not result.passed:
-        # errors, or (strict mode and warnings)
-        n = len(result.violations)
+        # active errors, or (strict mode and active violations)
+        n = len(result.active_violations)
         print(f"\nREJECTED: {n} violation{'s' if n != 1 else ''} — fix and re-run.")
         return 1
+    valid_waivers = [w for w in result.waivers if w.valid]
+    if valid_waivers:
+        print(f"\nWAIVERS: {len(valid_waivers)} valid waiver"
+              f"{'s' if len(valid_waivers) != 1 else ''} applied — "
+              "waived violations are excused, not erased.")
     if result.warnings:
         n = len(result.warnings)
         print(f"\nWARNINGS: {n} warning{'s' if n != 1 else ''} — pass "
@@ -60,6 +64,11 @@ def _record_lint(path: str, result) -> None:
             "passed": result.passed,
             "violations": len(result.violations),
             "by_rule": by_rule,
+            # Waiver metadata only — never the reason text (the ledger
+            # stores digests of draft content, never the content).
+            "waivers": len(result.waivers),
+            "waivers_valid": sum(1 for w in result.waivers if w.valid),
+            "waived_violations": sum(1 for v in result.violations if v.waived),
         },
         input_text=content,
     )

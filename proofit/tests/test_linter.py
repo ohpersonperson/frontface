@@ -94,5 +94,64 @@ class TestSeverity(unittest.TestCase):
             self.assertEqual([v.severity for v in result.violations], ["ERROR"])
 
 
+# PARAM-PROOFIT-002: sanctioned, auditable waiver.
+R3_WAIVED = R3_ONLY + "\n# waiver(3): the click and the export are one operator gesture\n"
+R3_WAIVER_NOREASON = R3_ONLY + "\n# waiver(3):\n"
+R1_WAIVED = R1_ONLY + "\n# waiver(1): assumptions are explicit in the prereq baseline\n"
+
+
+class TestWaiver(unittest.TestCase):
+    def test_valid_waiver_excuses_error(self):
+        result = lint_text(R3_WAIVED)
+        self.assertTrue(result.passed)
+        self.assertEqual(len(result.violations), 1)
+        v = result.violations[0]
+        self.assertTrue(v.waived)
+        self.assertIn("one operator gesture", v.waiver_reason)
+        # Severity still renders — the waiver excuses, it doesn't regrade.
+        self.assertEqual(v.severity, "ERROR")
+        self.assertIn("ERROR", v.render())
+        self.assertIn("waived", v.render())
+
+    def test_valid_waiver_excuses_in_strict_mode(self):
+        result = lint_text(R3_WAIVED, strict=True)
+        self.assertTrue(result.passed)
+
+    def test_waiver_logged_in_lint_record(self):
+        result = lint_text(R3_WAIVED)
+        self.assertEqual(len(result.waivers), 1)
+        w = result.waivers[0]
+        self.assertTrue(w.valid)
+        self.assertEqual(w.rule, 3)
+        rendered = result.render()
+        self.assertIn("WAIVER rule 3", rendered)
+        self.assertIn("one operator gesture", rendered)
+
+    def test_no_waiver_still_fails(self):
+        result = lint_text(R3_ONLY)
+        self.assertFalse(result.passed)
+        self.assertFalse(result.violations[0].waived)
+
+    def test_waiver_without_reason_rejected(self):
+        result = lint_text(R3_WAIVER_NOREASON)
+        self.assertFalse(result.passed)
+        self.assertEqual(len(result.waivers), 1)
+        self.assertFalse(result.waivers[0].valid)
+        self.assertFalse(result.violations[0].waived)
+        self.assertIn("INVALID", result.render())
+
+    def test_waiver_excuses_warning_too(self):
+        for strict in (False, True):
+            result = lint_text(R1_WAIVED, strict=strict)
+            self.assertTrue(result.passed)
+            self.assertTrue(result.violations[0].waived)
+
+    def test_unmatched_waiver_is_valid_but_unused(self):
+        result = lint_text(R1_ONLY + "\n# waiver(9): no routing issue here\n")
+        self.assertTrue(result.waivers[0].valid)
+        self.assertFalse(result.violations[0].waived)
+        self.assertTrue(result.passed)  # R1 is WARNING: passes anyway
+
+
 if __name__ == "__main__":
     unittest.main()
