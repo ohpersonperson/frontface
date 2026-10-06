@@ -27,7 +27,7 @@ except ImportError as exc:  # pragma: no cover - dependency wiring
         "pip install -e ../memdate   # from this staging tree"
     ) from exc
 
-from .entry import Response, format_entry
+from .entry import CaptureMode, Response, format_entry
 from .registers import REGISTERS, Register, plan_cycle
 
 
@@ -79,12 +79,20 @@ class InterviewSession:
         responses: list[Response],
         *,
         capture_domain: str | None = None,
+        capture_mode: CaptureMode | str | None = None,
     ) -> CaptureResult:
         """Format the answers and capture them via memdate.
 
         Captures under the announced domain unless ``capture_domain``
         is given — the explicit reassignment the skill requires before
         material may land in a different domain's raw.md.
+
+        ``capture_mode`` is mandatory: VERBATIM / SUMMARY / PARAPHRASE,
+        describing how the operator captured the answers. Omission is
+        a validation error (raises ValueError), never a silent default.
+        The meminqu SOURCE_TAG stamped on the capture is provenance
+        (where it entered the pipeline); the mode is fidelity (how it
+        was captured) — the two claims stay separate.
 
         Answers are captured under memdate's pure CAPTURE rules:
         if an answer trips an interpretation marker, capture() raises
@@ -98,7 +106,7 @@ class InterviewSession:
             if capture_domain is not None
             else name
         )
-        body = format_entry(name, responses)
+        body = format_entry(name, responses, capture_mode=capture_mode)
         result = capture(
             self.config,
             target,
@@ -156,6 +164,7 @@ class InterviewSession:
 __all__ = [
     "InterviewSession",
     "SessionError",
+    "CaptureMode",
     "InterpretationError",
     "CaptureResult",
     "MemoryConfig",

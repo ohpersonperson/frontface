@@ -82,7 +82,7 @@ class TestCaptureWiring(SessionTestCase):
         session = InterviewSession(self.config, domains=("personal", "work"))
         for domain in ("personal", "work"):
             registers = session.start_domain(domain)
-            result = session.submit_answers(domain, responses_for(registers))
+            result = session.submit_answers(domain, responses_for(registers), capture_mode="VERBATIM")
             self.assertTrue(result.path.endswith(f"{domain}/raw.md"))
         for domain in ("personal", "work"):
             raw = read_raw(self.config, domain)
@@ -93,7 +93,7 @@ class TestCaptureWiring(SessionTestCase):
         session = InterviewSession(self.config, domains=("work",))
         registers = session.start_domain("work")
         answers = responses_for(registers)
-        session.submit_answers("work", answers)
+        session.submit_answers("work", answers, capture_mode="VERBATIM")
         raw = read_raw(self.config, "work")
         for resp in answers:
             self.assertIn(resp.answer, raw)
@@ -118,7 +118,10 @@ class TestCaptureWiring(SessionTestCase):
         session = InterviewSession(self.config, domains=("personal", "work"))
         registers = session.start_domain("work")
         result = session.submit_answers(
-            "work", responses_for(registers), capture_domain="personal"
+            "work",
+            responses_for(registers),
+            capture_domain="personal",
+            capture_mode="VERBATIM",
         )
         self.assertTrue(result.path.endswith("personal/raw.md"))
         self.assertIsNone(read_raw(self.config, "work"))
@@ -130,7 +133,10 @@ class TestCaptureWiring(SessionTestCase):
         session.start_domain("work")
         with self.assertRaises(ConfigError):
             session.submit_answers(
-                "work", responses_for(["direct"]), capture_domain="nope"
+                "work",
+                responses_for(["direct"]),
+                capture_domain="nope",
+                capture_mode="VERBATIM",
             )
 
     def test_interpretation_marker_propagates(self):
@@ -140,7 +146,7 @@ class TestCaptureWiring(SessionTestCase):
         session.start_domain("work")
         bad = [Response("direct", "Q?", "In summary, everything is fine.")]
         with self.assertRaises(InterpretationError):
-            session.submit_answers("work", bad)
+            session.submit_answers("work", bad, capture_mode="VERBATIM")
 
 
 class TestCompletionReport(SessionTestCase):
@@ -149,7 +155,7 @@ class TestCompletionReport(SessionTestCase):
             self.config, domains=("personal", "work", "projects")
         )
         session.start_domain("personal")
-        session.submit_answers("personal", responses_for(["direct", "sparse"]))
+        session.submit_answers("personal", responses_for(["direct", "sparse"]), capture_mode="VERBATIM")
         session.skip_domain("work")
         report = session.completion_report()
         self.assertEqual(report["domains_captured"], ["personal"])
@@ -162,10 +168,37 @@ class TestCompletionReport(SessionTestCase):
     def test_rendered_report_is_readable(self):
         session = InterviewSession(self.config, domains=("personal",))
         session.start_domain("personal")
-        session.submit_answers("personal", responses_for(["direct"]))
+        session.submit_answers("personal", responses_for(["direct"]), capture_mode="VERBATIM")
         text = session.render_report()
         self.assertIn("personal/raw.md", text)
         self.assertIn("distill", text)  # next-action offer present
+
+
+class TestCaptureModeRequired(SessionTestCase):
+    """PARAM-MEMINQU-004: capture_mode mandatory at record time."""
+
+    def test_submit_without_mode_raises(self):
+        session = InterviewSession(self.config, domains=("work",))
+        session.start_domain("work")
+        with self.assertRaises(ValueError):
+            session.submit_answers("work", responses_for(["direct"]))
+
+    def test_mode_stored_in_raw(self):
+        session = InterviewSession(self.config, domains=("work",))
+        session.start_domain("work")
+        session.submit_answers(
+            "work", responses_for(["direct"]), capture_mode="PARAPHRASE"
+        )
+        raw = read_raw(self.config, "work")
+        self.assertIn("capture_mode: PARAPHRASE", raw)
+
+    def test_invalid_mode_raises(self):
+        session = InterviewSession(self.config, domains=("work",))
+        session.start_domain("work")
+        with self.assertRaises(ValueError):
+            session.submit_answers(
+                "work", responses_for(["direct"]), capture_mode="GIST"
+            )
 
 
 if __name__ == "__main__":

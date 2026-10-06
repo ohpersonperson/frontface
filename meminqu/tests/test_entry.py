@@ -9,9 +9,11 @@ import unittest
 
 from meminqu.entry import (
     ENTRY_MARKER,
+    CaptureMode,
     Response,
     answers_preserved_verbatim,
     format_entry,
+    normalize_capture_mode,
 )
 from meminqu.registers import RegisterError
 
@@ -39,11 +41,11 @@ def sample_responses():
 
 class TestFormatEntry(unittest.TestCase):
     def test_header_marker_and_domain(self):
-        body = format_entry("work", sample_responses())
+        body = format_entry("work", sample_responses(), capture_mode="VERBATIM")
         self.assertIn(f"{ENTRY_MARKER} — work", body)
 
     def test_register_list_matches_questions_asked(self):
-        body = format_entry("work", sample_responses())
+        body = format_entry("work", sample_responses(), capture_mode="VERBATIM")
         first_line = body.splitlines()[0]
         self.assertIn("direct", first_line)
         self.assertIn("reflective", first_line)
@@ -52,7 +54,7 @@ class TestFormatEntry(unittest.TestCase):
 
     def test_answers_verbatim(self):
         responses = sample_responses()
-        body = format_entry("work", responses)
+        body = format_entry("work", responses, capture_mode="VERBATIM")
         self.assertTrue(answers_preserved_verbatim(body, responses))
         for r in responses:
             # Byte-identical containment, not fuzzy matching.
@@ -65,7 +67,7 @@ class TestFormatEntry(unittest.TestCase):
             question="Three words. No more.",
             answer="tired tired tyrde",  # typo kept, not "fixed"
         )
-        body = format_entry("personal", [messy])
+        body = format_entry("personal", [messy], capture_mode="VERBATIM")
         self.assertIn("tired tired tyrde", body)
 
     def test_skipped_question_recorded_not_silent(self):
@@ -74,7 +76,7 @@ class TestFormatEntry(unittest.TestCase):
             Response(register="temporal", question="Q2?", answer=""),
             Response(register="temporal", question="Q3?", answer=None),
         ]
-        body = format_entry("work", responses)
+        body = format_entry("work", responses, capture_mode="VERBATIM")
         self.assertIn("A1.", body)
         self.assertEqual(body.count("_[no answer]_"), 2)
 
@@ -84,7 +86,50 @@ class TestFormatEntry(unittest.TestCase):
 
     def test_unknown_register_rejected(self):
         with self.assertRaises(RegisterError):
-            format_entry("work", [Response("nope", "Q?", "A.")])
+            format_entry("work", [Response("nope", "Q?", "A.")], capture_mode="VERBATIM")
+
+
+class TestCaptureMode(unittest.TestCase):
+    """PARAM-MEMINQU-004: mandatory capture_mode on every recorded entry."""
+
+    def test_each_mode_round_trips(self):
+        for mode in ("VERBATIM", "SUMMARY", "PARAPHRASE"):
+            body = format_entry(
+                "work", sample_responses(), capture_mode=mode
+            )
+            self.assertIn(f"capture_mode: {mode}", body)
+
+    def test_enum_member_accepted(self):
+        body = format_entry(
+            "work", sample_responses(), capture_mode=CaptureMode.SUMMARY
+        )
+        self.assertIn("capture_mode: SUMMARY", body)
+
+    def test_mode_string_case_insensitive(self):
+        body = format_entry(
+            "work", sample_responses(), capture_mode="paraphrase"
+        )
+        self.assertIn("capture_mode: PARAPHRASE", body)
+
+    def test_omission_is_validation_error(self):
+        # Never defaults silently: no mode -> raises.
+        with self.assertRaises(ValueError):
+            format_entry("work", sample_responses())
+        with self.assertRaises(ValueError):
+            format_entry("work", sample_responses(), capture_mode=None)
+
+    def test_invalid_mode_rejected(self):
+        with self.assertRaises(ValueError):
+            format_entry("work", sample_responses(), capture_mode="GIST")
+        with self.assertRaises(ValueError):
+            format_entry("work", sample_responses(), capture_mode=42)
+
+    def test_normalize_never_silently_defaults(self):
+        self.assertEqual(
+            normalize_capture_mode("verbatim"), CaptureMode.VERBATIM
+        )
+        with self.assertRaises(ValueError):
+            normalize_capture_mode(None)
 
 
 if __name__ == "__main__":
