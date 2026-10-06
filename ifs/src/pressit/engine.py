@@ -22,6 +22,7 @@ from typing import Protocol, runtime_checkable
 
 from .protocol import (SYSTEM_PROMPT, FieldInput, KeyDraft, ProtocolError,
                       required_collision_pairs, validate_keys)
+from .overlay import EvasionHalt, scan_evasion_cues
 from .ledger import Ledger
 
 
@@ -157,12 +158,25 @@ class RunResult:
 
 def run(field_input: FieldInput, backend: LLMBackend,
         *, prior_json: str | None = None,
-        prior_session: int | None = None) -> RunResult:
-    """Run one interrogation against a backend. One pass, never loops."""
+        prior_session: int | None = None,
+        acknowledge_evasion: bool = False) -> RunResult:
+    """Run one interrogation against a backend. One pass, never loops.
+
+    PARAM-PRESSIT-003: the evasion pre-scan runs first. If the field
+    carries evasion cues and the overlay flag is off, processing halts
+    with EvasionHalt (carrying the cues) until the operator re-invokes
+    with acknowledge_evasion=True — either activating the overlay or
+    confirming the false alarm. The halt propagates; it is never
+    converted to ok=False. The overlay flag itself stays
+    human-controlled and is never auto-engaged.
+    """
     FieldInput(
         field=field_input.field, mode=field_input.mode,
         overlay=field_input.overlay, evidence=field_input.evidence,
     )  # re-validate
+    cues = scan_evasion_cues(field_input.field)
+    if cues and not field_input.overlay and not acknowledge_evasion:
+        raise EvasionHalt(cues)
     user = build_user_message(field_input.field, overlay=field_input.overlay,
                               prior_json=prior_json)
     try:
