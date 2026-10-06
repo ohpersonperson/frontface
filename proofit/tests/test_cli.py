@@ -161,6 +161,25 @@ class TestWaiverCLI(unittest.TestCase):
         self.assertIn("REJECTED", r.stdout)
         self.assertIn("INVALID", r.stdout)
 
+    def test_ledger_records_waiver_metadata(self):
+        # PARAM-PROOFIT-002: the ledger carries waiver metadata — counts,
+        # rule numbers, validity — never the reason text.
+        import json
+        r = run_cli("lint", self._write(R3_WAIVED))
+        self.assertEqual(r.returncode, 0)
+        sys.path.insert(0, os.path.join(PKG, "src"))
+        from proofit.ledger import Ledger
+        os.environ["FRONTFACE_LEDGER_DIR"] = ENV["FRONTFACE_LEDGER_DIR"]
+        records = Ledger("proofit").read()
+        rec = records[-1]
+        self.assertEqual(rec["event"], "lint")
+        summary = rec["summary"]
+        self.assertEqual(summary["waivers"], 1)
+        self.assertEqual(summary["waivers_valid"], 1)
+        self.assertEqual(summary["waiver_rules"], [3])
+        self.assertEqual(summary["waiver_detail"], [{"rule": 3, "valid": True}])
+        self.assertNotIn("one operator gesture", json.dumps(rec))
+
 
 if __name__ == "__main__":
     unittest.main()

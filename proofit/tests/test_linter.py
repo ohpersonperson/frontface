@@ -4,6 +4,7 @@ import unittest
 
 from fixtures import CLEAN
 from proofit import lint_file, lint_text
+from proofit import parser
 from proofit.model import Violation
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -151,6 +152,19 @@ class TestWaiver(unittest.TestCase):
         self.assertTrue(result.waivers[0].valid)
         self.assertFalse(result.violations[0].waived)
         self.assertTrue(result.passed)  # R1 is WARNING: passes anyway
+
+    def test_trailing_waiver_line_is_metadata_not_structure(self):
+        # Regression (found during implementation): a trailing `# waiver(3)`
+        # line matches HEADING_RE and was parsed as an H1, tripping rule 10.
+        # Waiver lines are metadata, never document structure.
+        rb = parser.parse(R3_WAIVED)
+        titles = [t for _, t, _ in rb.section_order]
+        self.assertNotIn(
+            "waiver(3): the click and the export are one operator gesture",
+            titles,
+        )
+        result = lint_text(R3_WAIVED)
+        self.assertNotIn(10, {v.rule for v in result.violations})
 
 
 if __name__ == "__main__":

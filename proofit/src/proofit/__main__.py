@@ -66,9 +66,14 @@ def _record_lint(path: str, result) -> None:
             "by_rule": by_rule,
             # Waiver metadata only — never the reason text (the ledger
             # stores digests of draft content, never the content).
+            # PARAM-PROOFIT-002: counts, rule numbers, validity.
             "waivers": len(result.waivers),
             "waivers_valid": sum(1 for w in result.waivers if w.valid),
             "waived_violations": sum(1 for v in result.violations if v.waived),
+            "waiver_rules": sorted({w.rule for w in result.waivers}),
+            "waiver_detail": [
+                {"rule": w.rule, "valid": w.valid} for w in result.waivers
+            ],
         },
         input_text=content,
     )
