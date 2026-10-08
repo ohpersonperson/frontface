@@ -23,6 +23,15 @@ FIELD_RE = re.compile(
 )
 STEP_RE = re.compile(r"^step\s+(\d+)\s*:?\s*(.*)$", re.IGNORECASE)
 
+# PARAM-PROOFIT-002: waiver comments are metadata, not document content.
+# They must never parse as headings or section text — a waiver appended
+# at the end of a draft must not trip rule 10 (document ends on
+# Validation & Closure). The linter captures them separately.
+WAIVER_RE = re.compile(
+    r"^\s*#\s*waiver\s*\(\s*(\d+)\s*\)\s*:\s*(.*?)\s*$",
+    re.IGNORECASE,
+)
+
 # Subsection headings inside Ground Rules & Prerequisites that are NOT services.
 KNOWN_PREREQ_SUBSECTIONS = [
     r"required baseline",
@@ -86,6 +95,9 @@ def parse(text: str) -> Runbook:
             current_service = None
 
     for i, line in enumerate(lines, start=1):
+        if WAIVER_RE.match(line):
+            # Waiver comment: metadata, not document structure. Skip.
+            continue
         m = HEADING_RE.match(line)
         if m:
             level = len(m.group(1))

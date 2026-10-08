@@ -10,7 +10,7 @@ os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="pressit-test-")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from pressit import artifact, engine, backends, protocol
+from pressit import artifact, engine, backends, overlay, protocol
 
 
 def _key(i):
@@ -169,6 +169,50 @@ class TestEngine(unittest.TestCase):
         with self.assertRaises(engine.EngineError):
             engine.normalize("f", overlay=False, prior_session=None, model=bad)
 
+    def test_normalize_rejects_bad_key_classification(self):
+        # PARAM-PRESSIT-001: invalid enum value fails the Key contract.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][0]["classification"] = "BOGUS"
+        with self.assertRaises(engine.EngineError) as ctx:
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+        self.assertIn("classification", str(ctx.exception).lower())
+
+    def test_normalize_rejects_empty_key_component(self):
+        # PARAM-PRESSIT-001: empty mandatory component fails the Key contract.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][1]["evidence"] = "   "
+        with self.assertRaises(engine.EngineError) as ctx:
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+        self.assertIn("evidence", str(ctx.exception).lower())
+
+    def test_normalize_rejects_missing_key_component(self):
+        # PARAM-PRESSIT-001: a missing component fails as empty, not as a crash.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        del bad["keys"][2]["falsifier"]
+        with self.assertRaises(engine.EngineError):
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+
+    def test_normalize_rejects_null_key_component(self):
+        # PARAM-PRESSIT-001 (Grok 4.7 review): a present null is not a
+        # missing key — it must fail the contract, never crash with
+        # AttributeError inside validate_keys.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][0]["classification"] = None
+        bad["keys"][1]["confidence"] = 42
+        with self.assertRaises(engine.EngineError):
+            engine.normalize("f", overlay=False, prior_session=None, model=bad)
+
+    def test_run_key_violation_surfaces_as_not_ok(self):
+        # PARAM-PRESSIT-001: run() converts the violation to ok=False.
+        bad = json.loads(json.dumps(self.MODEL_JSON))
+        bad["keys"][0]["confidence"] = "CERTAIN"
+        backend = backends.StubBackend(bad)
+        field = protocol.FieldInput(field="Test field")
+        result = engine.run(field, backend)
+        self.assertFalse(result.ok)
+        self.assertIsNone(result.artifact)
+        self.assertIn("confidence", result.error.lower())
+
     def test_run_end_to_end_with_stub(self):
         backend = backends.StubBackend(self.MODEL_JSON)
         field = protocol.FieldInput(field="Test field")
@@ -194,6 +238,64 @@ class TestEngine(unittest.TestCase):
 
     def test_stub_backend_says_stub(self):
         self.assertEqual(backends.StubBackend({}).name, "stub")
+
+
+class TestEvasionPrescan(unittest.TestCase):
+    """PARAM-PRESSIT-003: cue pre-scan with mandatory hard halt."""
+
+    EVASIVE_FIELD = (
+        "The delay was not my fault — mistakes were made, "
+        "I don't know who signed it."
+    )
+
+    def test_scan_finds_cues(self):
+        cues = overlay.scan_evasion_cues(self.EVASIVE_FIELD)
+        self.assertIn("not my fault", cues)
+        self.assertIn("mistakes were made", cues)
+        self.assertIn("i don't know", cues)
+
+    def test_scan_clean_field(self):
+        self.assertEqual(overlay.scan_evasion_cues("Corner Books revenue"), [])
+        self.assertEqual(overlay.scan_evasion_cues("Test field"), [])
+
+    def test_scan_is_deterministic_and_passive(self):
+        first = overlay.scan_evasion_cues(self.EVASIVE_FIELD)
+        second = overlay.scan_evasion_cues(self.EVASIVE_FIELD.upper())
+        self.assertEqual(first, second)
+
+    def test_run_halts_on_cues_without_ack(self):
+        backend = backends.StubBackend(TestEngine.MODEL_JSON)
+        field = protocol.FieldInput(field=self.EVASIVE_FIELD)
+        with self.assertRaises(overlay.EvasionHalt) as ctx:
+            engine.run(field, backend)
+        self.assertIn("not my fault", ctx.exception.cues)
+        self.assertIn("not my fault", str(ctx.exception))
+
+    def test_run_proceeds_with_acknowledgment(self):
+        backend = backends.StubBackend(TestEngine.MODEL_JSON)
+        field = protocol.FieldInput(field=self.EVASIVE_FIELD)
+        result = engine.run(field, backend, acknowledge_evasion=True)
+        self.assertTrue(result.ok, result.error)
+
+    def test_run_proceeds_with_overlay_on(self):
+        backend = backends.StubBackend(TestEngine.MODEL_JSON)
+        field = protocol.FieldInput(field=self.EVASIVE_FIELD, overlay=True)
+        result = engine.run(field, backend)
+        self.assertTrue(result.ok, result.error)
+
+    def test_run_clean_field_no_halt(self):
+        backend = backends.StubBackend(TestEngine.MODEL_JSON)
+        field = protocol.FieldInput(field="Corner Books revenue")
+        result = engine.run(field, backend)
+        self.assertTrue(result.ok, result.error)
+
+    def test_halt_is_not_swallowed_as_not_ok(self):
+        # The halt must propagate as an exception, never surface as
+        # RunResult(ok=False) — halting is not failing.
+        backend = backends.StubBackend(TestEngine.MODEL_JSON)
+        field = protocol.FieldInput(field=self.EVASIVE_FIELD)
+        with self.assertRaises(overlay.EvasionHalt):
+            engine.run(field, backend)
 
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@ labeled as such when it exists.
 ## Test
 
 ```bash
-for d in pressit metacog flashy memdate meminqu fairit postmo proofit; do
+for d in ifs metacog flashy memdate meminqu probe-forge audit proofit; do
   PYTHONPATH="$d/src" python -m pytest "$d/tests/" -q
 done
 ```

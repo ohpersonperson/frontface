@@ -20,12 +20,25 @@ import json
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from .protocol import SYSTEM_PROMPT, FieldInput, required_collision_pairs
+from .protocol import (SYSTEM_PROMPT, FieldInput, KeyDraft, ProtocolError,
+                      required_collision_pairs, validate_keys)
+from .overlay import EvasionHalt, scan_evasion_cues
 from .ledger import Ledger
 
 
 class EngineError(RuntimeError):
     """The model call failed or returned an unreadable artifact."""
+
+
+def _s(value) -> str:
+    """Coerce a model-supplied component to str.
+
+    Model JSON is untrusted: a present null/number/list is not a missing
+    key, so dict.get's default never fires for it. Non-strings become ""
+    so they fail the Key contract as empty — never as an AttributeError
+    inside validate_keys (PARAM-PRESSIT-001 review finding).
+    """
+    return value if isinstance(value, str) else ""
 
 
 @runtime_checkable
@@ -75,6 +88,9 @@ def normalize(field_text: str, *, overlay: bool, prior_session: int | None,
 
     Enforces the hard limits in code: valid Take ids, required collision
     pairs only, at most 5 Keys, probe dropped unless the overlay is on.
+    Every Key is walked through the protocol's validate_keys contract
+    (PARAM-PRESSIT-001): an invalid enum value or an empty mandatory
+    component raises EngineError, which run() surfaces as ok=False.
     """
     takes = [t for t in model.get("takes", []) if t.get("id") in ("A", "B", "C")]
     if len(takes) < 2:
@@ -90,6 +106,26 @@ def normalize(field_text: str, *, overlay: bool, prior_session: int | None,
         raise EngineError(
             f"The engine returned only {len(keys)} Keys; the protocol requires 3-5."
         )
+    # PARAM-PRESSIT-001: the Key contract is not optional. Convert the raw
+    # model dicts to KeyDrafts (_s coerces non-strings to "" so every
+    # bad component fails as empty, never as an AttributeError) and
+    # enforce classification / confidence enums plus non-empty mandatory
+    # components.
+    drafts = [
+        KeyDraft(
+            statement=_s(k.get("statement")),
+            classification=_s(k.get("classification")),
+            evidence=_s(k.get("evidence")),
+            confidence=_s(k.get("confidence")),
+            vulnerability=_s(k.get("vulnerability")),
+            falsifier=_s(k.get("falsifier")),
+        )
+        for k in keys
+    ]
+    try:
+        validate_keys(drafts)
+    except ProtocolError as exc:
+        raise EngineError(f"Key contract violation: {exc}") from exc
     meta = model.get("meta", {})
     probe = model.get("probe") if overlay else None
 
@@ -122,12 +158,25 @@ class RunResult:
 
 def run(field_input: FieldInput, backend: LLMBackend,
         *, prior_json: str | None = None,
-        prior_session: int | None = None) -> RunResult:
-    """Run one interrogation against a backend. One pass, never loops."""
+        prior_session: int | None = None,
+        acknowledge_evasion: bool = False) -> RunResult:
+    """Run one interrogation against a backend. One pass, never loops.
+
+    PARAM-PRESSIT-003: the evasion pre-scan runs first. If the field
+    carries evasion cues and the overlay flag is off, processing halts
+    with EvasionHalt (carrying the cues) until the operator re-invokes
+    with acknowledge_evasion=True — either activating the overlay or
+    confirming the false alarm. The halt propagates; it is never
+    converted to ok=False. The overlay flag itself stays
+    human-controlled and is never auto-engaged.
+    """
     FieldInput(
         field=field_input.field, mode=field_input.mode,
         overlay=field_input.overlay, evidence=field_input.evidence,
     )  # re-validate
+    cues = scan_evasion_cues(field_input.field)
+    if cues and not field_input.overlay and not acknowledge_evasion:
+        raise EvasionHalt(cues)
     user = build_user_message(field_input.field, overlay=field_input.overlay,
                               prior_json=prior_json)
     try:

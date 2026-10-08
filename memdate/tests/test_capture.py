@@ -34,7 +34,7 @@ class CaptureTests(unittest.TestCase):
         result = capture(self.cfg, "work", "Shipped the patch.", now=now,
                          adapter=self.store)
         text = self.store.read("work/raw.md")
-        self.assertIn("2026-09-24 18:00", text)
+        self.assertIn("2026-09-24T18:00:00+00:00", text)
         self.assertIn("Shipped the patch.", text)
         self.assertTrue(text.startswith("## "))
         self.assertEqual(result.domain, "work")

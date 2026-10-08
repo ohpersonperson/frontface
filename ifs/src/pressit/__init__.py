@@ -16,6 +16,7 @@ from .evidence import EvidenceItem, TAXONOMY, normalize_tag, EvidenceError
 from .overlay import (
     ProbeBrief, JargonFlag, ground, probe_jargon, handoff_seeds,
     H_OBFUSCATION, H_GENUINE, H_BOTH, H_INSUFFICIENT,
+    EvasionHalt, EVASION_CUES, scan_evasion_cues,
 )
 from .protocol import (
     SYSTEM_PROMPT, FieldInput, KeyDraft, ProtocolError,
@@ -34,6 +35,7 @@ __all__ = [
     "EvidenceItem", "TAXONOMY", "normalize_tag", "EvidenceError",
     "ProbeBrief", "JargonFlag", "ground", "probe_jargon", "handoff_seeds",
     "H_OBFUSCATION", "H_GENUINE", "H_BOTH", "H_INSUFFICIENT",
+    "EvasionHalt", "EVASION_CUES", "scan_evasion_cues",
     "SYSTEM_PROMPT", "FieldInput", "KeyDraft", "ProtocolError",
     "required_collision_pairs", "validate_keys",
     "STANDARD", "SYSTEMIC", "STRESS_TEST", "ADJUDICATION",

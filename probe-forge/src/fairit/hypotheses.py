@@ -22,7 +22,9 @@ on category alone is rejected.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
+from enum import Enum
 
 H_OBFUSCATION = "H-obfuscation"
 H_GENUINE = "H-genuine"
@@ -47,6 +49,57 @@ class CategoryPresumptionError(HypothesisError):
     "therapy-speak" by itself, with no observation attached, is not
     discriminating evidence of anything.
     """
+
+
+class CategoryGateDeclinedWarning(UserWarning):
+    """The category-only tripwire was consulted and declined to fire.
+
+    Emitted for every evidence phrase the gate lets through, carrying
+    the phrase and the tripwire result — so the consultation is
+    auditable instead of silent. The heuristic stays narrow by design;
+    this warning is its visibility, not a claim of completeness.
+    """
+
+
+class OriginType(str, Enum):
+    """The operator's claimed origin of one evidence item.
+
+    Visibility and scrutiny, not truth authentication: the package
+    labels what the operator *claims*, it does not verify the claim.
+    """
+
+    OPERATOR_PARAPHRASE = "operator-paraphrase"
+    INDEPENDENT_OBSERVATION = "independent-observation"
+    SYNTHETIC_GENERATION = "synthetic-generation"
+
+
+def normalize_origin_type(value: OriginType | str | None) -> OriginType:
+    """Validate a claimed origin; omission or unknown values raise.
+
+    Accepts an OriginType member or a string (case-insensitive;
+    hyphens, underscores, and spaces treated alike). Never defaults
+    silently: ``None`` and anything outside the three origins raise
+    HypothesisError.
+    """
+    if value is None:
+        raise HypothesisError(
+            "origin_type is required: operator-paraphrase, "
+            "independent-observation, or synthetic-generation. Omission "
+            "is a validation error — the origin must be claimed, never "
+            "defaulted."
+        )
+    if isinstance(value, OriginType):
+        return value
+    if isinstance(value, str):
+        key = value.strip().upper().replace("-", "_").replace(" ", "_")
+        try:
+            return OriginType[key]
+        except KeyError:
+            pass
+    raise HypothesisError(
+        f"Invalid origin_type {value!r}: must be one of "
+        + ", ".join(m.value for m in OriginType)
+    )
 
 
 # Category labels that may contextualize a record but may never stand
@@ -101,22 +154,44 @@ class DiscriminatingEvidence:
     `favors` names which hypothesis this observation supports, or
     "neutral" for an observation that constrains the case without
     favoring a side (e.g. a timeline fact both hypotheses must fit).
+
+    `origin_type` is the operator's *claimed* origin of the item —
+    operator paraphrase, independent observation, or synthetic
+    generation. Mandatory: omission is a validation error. The package
+    surfaces the claim in render; it does not authenticate it.
     """
 
     text: str
     favors: str = "neutral"
+    origin_type: OriginType | str | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.text.strip():
             raise HypothesisError("Evidence item text must not be empty.")
         if self.favors not in DIRECTIONED + ("neutral",):
             raise HypothesisError(f"Bad evidence direction: {self.favors!r}.")
+        # Normalize the claimed origin (frozen dataclass: __setattr__).
+        object.__setattr__(
+            self, "origin_type", normalize_origin_type(self.origin_type)
+        )
         if looks_category_only(self.text):
             raise CategoryPresumptionError(
                 f"Category membership is not evidence: {self.text!r}. "
                 "Attach an observation — what was said, done, or omitted, "
                 "and what would differ between the hypotheses."
             )
+        # The gate was consulted and declined: surface it. Silent
+        # pass-through becomes an auditable warning carrying the phrase
+        # and the tripwire result. (stacklevel=3: warn() <- __post_init__
+        # <- the dataclass-generated __init__ <- the constructing caller.)
+        warnings.warn(
+            CategoryGateDeclinedWarning(
+                f"looks_category_only gate declined for phrase {self.text!r}: "
+                "tripwire result=False — phrase passed as evidence. "
+                "The gate was consulted; this warning is the audit record."
+            ),
+            stacklevel=3,
+        )
 
 
 @dataclass(frozen=True)
@@ -206,7 +281,7 @@ class HypothesisRecord:
             "Discriminating evidence:",
         ]
         lines.extend(
-            f"  - [{e.favors}] {e.text}" for e in self.evidence
+            f"  - [{e.favors} | {e.origin_type.value}] {e.text}" for e in self.evidence
         ) or lines.append("  (none)")
         lines.append("Key mechanisms:")
         lines.extend(

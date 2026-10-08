@@ -13,7 +13,7 @@ The isolation rule is enforced two ways:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .adapters import StorageAdapter, default_adapter
 from .config import MemoryConfig
@@ -37,8 +37,16 @@ def scan_interpretation(text: str, markers: tuple[str, ...]) -> list[str]:
 
 
 def stamp(now: datetime | None = None) -> str:
-    dt = now or datetime.now().astimezone()
-    return dt.strftime("%Y-%m-%d %H:%M %Z").strip()
+    """UTC ISO-8601 timestamp with offset (PARAM-MEMDATE-015).
+
+    One format everywhere: no naive timestamps leave this function.
+    A naive ``now`` is assumed UTC (documented; callers should prefer
+    aware datetimes).
+    """
+    dt = now if now is not None else datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
 
 
 @dataclass

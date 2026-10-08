@@ -10,7 +10,7 @@ certify a run where something else did.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import datetime, timezone
 
 from . import frontmatter as fm
 from .adapters import StorageAdapter, default_adapter
@@ -35,6 +35,10 @@ class DistillResult:
     raw_untouched: bool
     entities: tuple[str, ...] = ()
     open_questions: tuple[str, ...] = ()
+    # PARAM-MEMDATE-014: operator-held digest token for raw.md as certified
+    # by this run. Present it as prior_token on the next distill() call;
+    # a mismatch refuses the run (inter-run mutation detected).
+    raw_token: str = ""
 
 
 def distill(
@@ -49,6 +53,7 @@ def distill(
     lifecycle: str = "ITERATIVE",
     today: str | None = None,
     adapter: StorageAdapter | None = None,
+    prior_token: str | None = None,
 ) -> DistillResult:
     """Write ``<domain>/distilled.md`` with provenance frontmatter.
 
@@ -59,8 +64,18 @@ def distill(
     - ``informs`` lists other domains this domain's material informs
       (dependency direction).
     - ``open_questions`` are contradictions/unknowns visible in this domain.
+    - ``prior_token`` is the ``raw_token`` returned by the previous
+      distill run (PARAM-MEMDATE-014). When given, raw.md's current digest
+      must match it, or the run is refused: something mutated raw.md
+      between runs. Omit it on the first run (bootstrap).
+    - Returns a ``DistillResult`` carrying the fresh ``raw_token`` for the
+      next run.
+    - The frontmatter ``date`` is a UTC ISO-8601 timestamp with offset
+      (PARAM-MEMDATE-015) unless ``today`` is explicitly passed, in which
+      case the caller's string is written verbatim.
     - Raises ``DistillError`` if raw.md is missing (nothing to distill),
-      if lifecycle is invalid, or if raw.md's bytes changed during the run.
+      if lifecycle is invalid, if raw.md's bytes changed during the run,
+      or if a presented ``prior_token`` does not match raw.md's digest.
     """
     name = config.require_domain(domain)
     text = body.strip()
@@ -84,11 +99,21 @@ def distill(
             f"Capture something first."
         )
     raw_before = store.digest(raw_path)
+    if prior_token is not None and prior_token != raw_before:
+        raise DistillError(
+            f"Inter-run mutation detected: {raw_path} changed since the "
+            f"last certified distill run (presented token does not match "
+            f"raw.md's current digest). The run is refused — inspect what "
+            f"mutated raw.md out-of-band, then re-run with a fresh token."
+        )
 
     fields: dict[str, object] = {
         "artifact": ARTIFACT,
         "domain": name,
-        "date": today or date.today().isoformat(),
+        # PARAM-MEMDATE-015: generated stamps are UTC ISO-8601 with offset,
+        # never naive. An explicit `today` override is written verbatim
+        # (caller-owned determinism).
+        "date": today or datetime.now(timezone.utc).isoformat(),
         "protocol": PROTOCOL_VERSION,
         "lifecycle": cycle,
         "entities": [e.strip() for e in (entities or []) if e.strip()],
@@ -116,6 +141,7 @@ def distill(
         raw_untouched=True,
         entities=tuple(fields["entities"]),  # type: ignore[arg-type]
         open_questions=tuple(fields["open_questions"]),  # type: ignore[arg-type]
+        raw_token=raw_after,
     )
 
 

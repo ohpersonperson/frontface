@@ -72,6 +72,57 @@ class DistillTests(unittest.TestCase):
         distill(self.cfg, "work", "Body.", adapter=self.store)
         self.assertEqual(before, self.store.digest("work/raw.md"))
 
+    def test_distill_returns_raw_token(self):
+        # PARAM-MEMDATE-014: the result carries the certified raw digest.
+        result = distill(self.cfg, "work", "Body.", adapter=self.store)
+        self.assertEqual(result.raw_token, self.store.digest("work/raw.md"))
+        self.assertTrue(result.raw_token)
+
+    def test_distill_accepts_matching_prior_token(self):
+        # PARAM-MEMDATE-014: presenting the previous run's token proceeds.
+        first = distill(self.cfg, "work", "Body one.", adapter=self.store)
+        second = distill(self.cfg, "work", "Body two.",
+                         prior_token=first.raw_token, adapter=self.store)
+        self.assertTrue(second.raw_untouched)
+        self.assertEqual(second.raw_token, self.store.digest("work/raw.md"))
+
+    def test_distill_refuses_stale_prior_token(self):
+        # PARAM-MEMDATE-014: out-of-band mutation between runs is refused,
+        # explicitly — not a silent proceed.
+        first = distill(self.cfg, "work", "Body one.", adapter=self.store)
+        self.store.append("work/raw.md", "\n## hand-edited out-of-band\n")
+        with self.assertRaises(DistillError) as ctx:
+            distill(self.cfg, "work", "Body two.",
+                    prior_token=first.raw_token, adapter=self.store)
+        self.assertIn("token", str(ctx.exception).lower())
+        # The refused run wrote nothing.
+        self.assertNotIn("Body two", self.store.read("work/distilled.md"))
+        # A fresh token (post-mutation state) proceeds again.
+        fresh = self.store.digest("work/raw.md")
+        retry = distill(self.cfg, "work", "Body two.",
+                        prior_token=fresh, adapter=self.store)
+        self.assertTrue(retry.raw_untouched)
+
+    def test_timestamps_unified_tz_aware(self):
+        # PARAM-MEMDATE-015: one format everywhere — UTC ISO-8601 with
+        # offset. Every timestamp capture/distill generate parses tz-aware,
+        # and the distilled date orders at/after the raw entries it
+        # consolidated.
+        from datetime import datetime
+        capture(self.cfg, "work", "A tz-aware note.", adapter=self.store)
+        distill(self.cfg, "work", "Body.", adapter=self.store)
+        raw = self.store.read("work/raw.md")
+        stamps = [ln[3:].split(" — ")[0].strip()
+                  for ln in raw.splitlines() if ln.startswith("## ")]
+        self.assertTrue(stamps)
+        parsed = [datetime.fromisoformat(ts) for ts in stamps]
+        for dt in parsed:
+            self.assertIsNotNone(dt.tzinfo)
+        fields, _ = read_distilled(self.cfg, "work", adapter=self.store)
+        distilled_at = datetime.fromisoformat(fields["date"])
+        self.assertIsNotNone(distilled_at.tzinfo)
+        self.assertGreaterEqual(distilled_at, max(parsed))
+
     def test_invalid_lifecycle_rejected(self):
         with self.assertRaises(DistillError):
             distill(self.cfg, "work", "Body.", lifecycle="DRAFT",

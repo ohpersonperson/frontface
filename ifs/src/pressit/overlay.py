@@ -13,6 +13,13 @@ overlay, renamed in plain language. The workshop stage names
 
 The overlay never replaces Diverge/Collide. Default: OFF. Activate only when
 asked, or when the field is clearly an evasion / responsibility problem.
+
+PARAM-PRESSIT-003: the activation condition is now evaluated, not just
+stated. `scan_evasion_cues()` runs a passive deterministic pre-scan over
+the field text against the fixed EVASION_CUES list; when cues are present
+and the overlay flag is off, `engine.run()` raises `EvasionHalt` until the
+operator explicitly acknowledges (re-invoke with acknowledge_evasion=True,
+overlay on or false-alarm confirmed). The flag itself is never auto-engaged.
 """
 
 from __future__ import annotations
@@ -38,6 +45,68 @@ SUPPORT_STATUSES = ("supported", "contested", "unsupported")
 
 class OverlayError(ValueError):
     """Raised when overlay input breaks the contract."""
+
+
+class EvasionHalt(RuntimeError):
+    """Mandatory hard halt: evasion cues present, overlay off, unacknowledged.
+
+    Carries the matched cues. In a non-interactive library "halt until
+    acknowledged" takes this shape: the exception stops field processing,
+    and the caller re-invokes with acknowledge_evasion=True — either
+    activating the overlay or confirming the false alarm. Deliberately
+    NOT an EngineError subclass caught by run()'s normalize handler;
+    this halt must propagate, never surface as ok=False.
+    """
+
+    def __init__(self, cues: list[str]) -> None:
+        self.cues = list(cues)
+        super().__init__(
+            "Evasion pre-scan found cues: "
+            + ", ".join(repr(c) for c in cues)
+            + ". Field processing halted: re-invoke with "
+            "acknowledge_evasion=True (overlay on, or false alarm "
+            "confirmed). The overlay flag is never auto-engaged."
+        )
+
+
+# PARAM-PRESSIT-003: fixed, documented cue list for the passive
+# deterministic pre-scan. Case-insensitive substring match. The list is
+# deliberately narrow — it catches evasion-shaped fields, it does not
+# certify clean ones.
+EVASION_CUES = (
+    # Responsibility denial: the outcome is placed outside the actor.
+    "not my fault",
+    "wasn't my fault",
+    "was not my fault",
+    "not my responsibility",
+    "wasn't my responsibility",
+    "was not my responsibility",
+    "mistakes were made",
+    "i had no choice",
+    "i was just following orders",
+    # Motive framing: noble intent offered in place of an account.
+    "i was only trying to help",
+    "i was just trying to help",
+    "my intentions were good",
+    "i meant well",
+    # "I don't know" patterns: claimed ignorance as a shield.
+    "i don't know",
+    "i dont know",
+    "i can't remember",
+    "i cant remember",
+    "don't recall",
+    "can't recall",
+)
+
+
+def scan_evasion_cues(field_text: str) -> list[str]:
+    """Passive pre-scan: return the evasion cues present in the field text.
+
+    Deterministic (fixed cue list, case-insensitive substring match),
+    no side effects. Does not touch the overlay flag — evaluation only.
+    """
+    lowered = field_text.lower()
+    return [cue for cue in EVASION_CUES if cue in lowered]
 
 
 @dataclass

@@ -76,7 +76,9 @@ def main() -> None:
         registers = session.start_domain(domain)
         print(f"--- {domain} (registers: {', '.join(registers)})")
         responses = [Response(register, *SCRIPT[register]) for register in registers]
-        result = session.submit_answers(domain, responses)
+        result = session.submit_answers(
+            domain, responses, capture_mode="VERBATIM"
+        )
         print(f"    captured -> {result.path} ({result.bytes_written} bytes)")
 
     # Show one raw file as written.

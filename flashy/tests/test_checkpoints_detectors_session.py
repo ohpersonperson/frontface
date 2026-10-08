@@ -63,6 +63,62 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(parsed.remaining, ["Persistence", "Testing", "Delivery"])
         self.assertEqual(parsed.resume_token, "finish:debate-sim-m3")
 
+    def test_digest_stamped_on_write(self):
+        # PARAM-FLASHY-004: the rendered block carries a SHA-256 binding.
+        cp = self._checkpoint()
+        self.assertRegex(cp.digest, r"^[0-9a-f]{64}$")
+        self.assertIn(f"DIGEST     -> {cp.digest}", cp.render())
+
+    def test_resume_verifies_untampered(self):
+        # PARAM-FLASHY-004: faithful checkpoint resumes and reconstructs.
+        resumed = Checkpoint.resume(self._checkpoint().render())
+        self.assertEqual(resumed.objective, "Deliver a functional debate simulator")
+        self.assertEqual(resumed.done, ["Architecture", "UI"])
+        self.assertFalse(resumed.manual_edit_override)
+
+    def test_resume_aborts_on_tamper(self):
+        # PARAM-FLASHY-004: hand-edited content aborts the resume, explicitly.
+        text = self._checkpoint().render()
+        tampered = text.replace("DONE       -> Architecture, UI",
+                                "DONE       -> Architecture, UI, Everything")
+        with self.assertRaises(CheckpointError) as ctx:
+            Checkpoint.resume(tampered)
+        self.assertIn("mismatch", str(ctx.exception).lower())
+
+    def test_resume_override_acknowledged(self):
+        # PARAM-FLASHY-004: explicit manual-edit flag resumes with the
+        # override noted — in the object and in the rendered block.
+        text = self._checkpoint().render()
+        tampered = text.replace("DONE       -> Architecture, UI",
+                                "DONE       -> Architecture, UI, Everything")
+        resumed = Checkpoint.resume(tampered, allow_manual_edit=True)
+        self.assertTrue(resumed.manual_edit_override)
+        self.assertEqual(resumed.done, ["Architecture", "UI", "Everything"])
+        self.assertIn("OVERRIDE", resumed.render())
+
+    def test_resume_refuses_predigest_block(self):
+        # PARAM-FLASHY-004: a block rendered before digest binding carries
+        # no write-time attestation — parse must not bless it with a fresh
+        # digest; resume refuses explicitly.
+        text = self._checkpoint().render()
+        legacy = "\n".join(ln for ln in text.splitlines()
+                           if not ln.startswith("DIGEST"))
+        parsed = Checkpoint.parse(legacy)
+        self.assertEqual(parsed.digest, "")
+        with self.assertRaises(CheckpointError) as ctx:
+            Checkpoint.resume(legacy)
+        self.assertIn("predates", str(ctx.exception).lower())
+
+    def test_resume_predigest_not_bypassable(self):
+        # PARAM-FLASHY-004 (Grok 4.7 review): the manual-edit bypass is
+        # mismatch-only. A missing digest is unverifiable provenance, not
+        # an acknowledged edit — allow_manual_edit must not bless it.
+        text = self._checkpoint().render()
+        legacy = "\n".join(ln for ln in text.splitlines()
+                           if not ln.startswith("DIGEST"))
+        with self.assertRaises(CheckpointError):
+            Checkpoint.resume(legacy, allow_manual_edit=True)
+
     def test_needs_objective_and_token(self):
         with self.assertRaises(CheckpointError):
             Checkpoint(objective="  ", resume_token="finish:x-m1")
