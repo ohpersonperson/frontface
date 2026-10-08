@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fairit"
-version = "1.0.0"
+version = "1.1.0"
 description = "Ground mapping and evasion-hypothesis testing: hold the state, test the language, hand off the seeds. Never presumes evasion."
 readme = "README.md"
 license = { text = "MIT" }

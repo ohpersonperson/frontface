@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frontface-proofit"
-version = "1.0.0"
+version = "1.1.0"
 description = "Fail-closed linter for locked-down runbooks: ten rules of workflow discipline as code"
 readme = "README.md"
 license = { text = "MIT" }
