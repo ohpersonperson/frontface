@@ -32,7 +32,7 @@ from .protocol import (
 from .ledger import Ledger
 from .record import CollisionRecord
 from .steelman import check_countermodel
-from .triggers import TriggerEvaluation
+from .triggers import TRIGGERS, TriggerEvaluation
 
 
 class EngineError(RuntimeError):
@@ -149,16 +149,60 @@ def parse_model_json(raw: str) -> dict:
     )
 
 
+def _reconcile_triggers(
+    claimed: list[str] | None, reported: list[str]
+) -> list[str]:
+    """Compare operator-claimed triggers against the model's reported list.
+
+    Every mismatch becomes a finding on the record; the operator's input is
+    never silently discarded. PARAM-METACOG-017.
+    """
+    claimed = list(claimed or [])
+    findings = []
+    for t in claimed:
+        if t not in TRIGGERS:
+            findings.append(
+                f"Operator claimed unknown trigger {t!r} "
+                "(not in the protocol trigger list)."
+            )
+        elif t not in reported:
+            findings.append(
+                f"Operator claimed trigger {t!r}, "
+                "but the model did not report it tripped."
+            )
+    for t in reported:
+        if t not in claimed:
+            findings.append(
+                f"Model reported trigger {t!r}, "
+                "which the operator did not claim."
+            )
+    return findings
+
+
 def normalize(inp: ReasoningInput, model: dict) -> dict:
     """Normalize raw model output into a validated record dict."""
     if model.get("stand_down"):
         return {"stand_down": True, "report": "No thresholds tripped. Standing down."}
 
     triggers = TriggerEvaluation(tripped=model.get("triggers", []))
+
+    # PARAM-METACOG-017: reconcile operator-claimed triggers against the
+    # model's reported list. Mismatches are recorded as findings instead of
+    # silently discarding the operator's input — including on the invalid
+    # no-fires path, where they are surfaced in the error.
+    trigger_findings = _reconcile_triggers(inp.triggers, triggers.tripped)
+
     if not triggers.fires:
+        detail = (
+            " Operator/model trigger mismatch: "
+            + "; ".join(trigger_findings)
+            + "."
+            if trigger_findings
+            else ""
+        )
         raise EngineError(
             "The engine returned no tripped triggers. A controller that always "
-            "fires is noise — the run is invalid."
+            f"fires is noise — the run is invalid.{detail}"
         )
 
     # Countermodel + steelman check: a weak countermodel fails the run.
@@ -209,6 +253,7 @@ def normalize(inp: ReasoningInput, model: dict) -> dict:
     return {
         "stand_down": False,
         "triggers": triggers.tripped,
+        "trigger_findings": trigger_findings,
         "countermodel": countermodel,
         "assumptions": assumptions,
         "collisions": collisions,
@@ -255,6 +300,7 @@ def _record_run(user: str, *, ok: bool, record: dict | None,
         summary.update({
             "stand_down": record.get("stand_down", False),
             "triggers": record.get("triggers", []),
+            "trigger_findings": len(record.get("trigger_findings", [])),
             "assumptions": len(assumptions),
             "load_bearing": sum(1 for a in assumptions
                                 if a.get("kind") == "load-bearing"),

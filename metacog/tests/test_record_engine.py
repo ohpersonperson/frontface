@@ -274,6 +274,82 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(len(result.record["demotions"]), 1)
         self.assertIn("demoted to hypothesis", result.record["demotions"][0])
 
+    # PARAM-METACOG-017: operator-trigger reconciliation.
+    def _input_with_triggers(self, triggers):
+        inp = self._input()
+        inp.triggers = triggers
+        return inp
+
+    def _model_with_triggers(self, triggers):
+        model = _valid_model()
+        model["triggers"] = triggers
+        return model
+
+    def test_trigger_reconciliation_records_unclaimed_model_trigger(self):
+        result = run(
+            self._input_with_triggers([STAKES]),
+            StubBackend(self._model_with_triggers([STAKES, CONTRADICTION])),
+        )
+        self.assertTrue(result.ok)
+        findings = result.record["trigger_findings"]
+        self.assertEqual(len(findings), 1)
+        self.assertIn(CONTRADICTION, findings[0])
+        self.assertIn("did not claim", findings[0])
+
+    def test_trigger_reconciliation_records_dropped_claim(self):
+        result = run(
+            self._input_with_triggers([STAKES]),
+            StubBackend(self._model_with_triggers([CONTRADICTION])),
+        )
+        self.assertTrue(result.ok)
+        findings = result.record["trigger_findings"]
+        self.assertEqual(len(findings), 2)
+        self.assertIn(STAKES, findings[0])
+        self.assertIn("did not report", findings[0])
+        self.assertIn(CONTRADICTION, findings[1])
+        self.assertIn("did not claim", findings[1])
+
+    def test_trigger_reconciliation_clean_when_matching(self):
+        result = run(
+            self._input_with_triggers([STAKES, CONTRADICTION]),
+            StubBackend(self._model_with_triggers([STAKES, CONTRADICTION])),
+        )
+        self.assertTrue(result.ok)
+        self.assertEqual(result.record["trigger_findings"], [])
+
+    def test_trigger_reconciliation_no_operator_claims(self):
+        result = run(
+            self._input_with_triggers(None),
+            StubBackend(self._model_with_triggers([STAKES])),
+        )
+        self.assertTrue(result.ok)
+        findings = result.record["trigger_findings"]
+        self.assertEqual(len(findings), 1)
+        self.assertIn(STAKES, findings[0])
+        self.assertIn("did not claim", findings[0])
+
+    def test_trigger_reconciliation_surfaced_on_no_fires(self):
+        # Panel finding: the no-fires path raised before reconciliation ran,
+        # silently discarding the operator's claim. The claim must now appear
+        # in the error; strictness (the run still fails) is preserved.
+        result = run(
+            self._input_with_triggers([STAKES]),
+            StubBackend(self._model_with_triggers([])),
+        )
+        self.assertFalse(result.ok)
+        self.assertIn("noise", result.error)
+        self.assertIn(STAKES, result.error)
+
+    def test_trigger_reconciliation_unknown_claim_recorded(self):
+        result = run(
+            self._input_with_triggers(["not-a-real-trigger"]),
+            StubBackend(self._model_with_triggers([STAKES])),
+        )
+        self.assertTrue(result.ok)
+        findings = result.record["trigger_findings"]
+        self.assertEqual(len(findings), 2)  # unknown claim + unclaimed STAKES
+        self.assertIn("unknown trigger", findings[0])
+
 
 if __name__ == "__main__":
     unittest.main()
