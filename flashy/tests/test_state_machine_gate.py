@@ -139,5 +139,44 @@ class QualityGateTests(unittest.TestCase):
         self.assertIn(GATE_ITEMS[0], gate.missing())
 
 
+class TrustContractTests(unittest.TestCase):
+    """The gate's trust contract must be stated honestly in its docs.
+
+    PARAM-FLASHY-011: the gate is a self-certification checklist. If the
+    labeling text ever disappears or softens, these fail.
+    """
+
+    CONTRACT_WORDS = (
+        "self-certification",
+        "declaration",
+        "no evidence",
+        "third party",
+    )
+
+    def _doc_texts(self):
+        import flashy.quality_gate as qg
+
+        return [
+            qg.__doc__,
+            QualityGate.__doc__,
+            QualityGate.check.__doc__,
+            QualityGate.check_all.__doc__,
+            QualityGate.status.__doc__,
+        ]
+
+    def test_contract_stated_in_docstrings(self):
+        docs = "\n".join(self._doc_texts()).lower()
+        for word in self.CONTRACT_WORDS:
+            self.assertIn(
+                word, docs, f"trust-contract word {word!r} missing from docstrings"
+            )
+
+    def test_check_all_docstring_names_speech_act(self):
+        self.assertIn("i certify", QualityGate.check_all.__doc__.lower())
+
+    def test_status_docstring_disclaims_attestation(self):
+        self.assertIn("attest", QualityGate.status.__doc__.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
