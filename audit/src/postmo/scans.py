@@ -505,7 +505,31 @@ def _word_present(word: str, text: str) -> bool:
     return re.search(r"\b" + re.escape(word) + r"\b", text, re.IGNORECASE) is not None
 
 
-def detect_softening(original: str, restatement: str) -> list[SofteningFlag]:
+@dataclass(frozen=True)
+class SofteningResult:
+    """Coverage-carrying result of the D5 softening comparison.
+
+    PARAM-POSTMO-016: a bare flags list cannot encode "no tripwire
+    fired" vs "nothing to find" — the result carries its own coverage,
+    so an empty flags list is distinguishable from "text is clean" at
+    the call site. DOWNGRADE_PAIRS stays a closed 1:1 table (the table
+    itself is wont_change); matching semantics untouched.
+
+    Frozen protects field rebinding, not the flags list's contents —
+    treat result.flags as read-only.
+    """
+
+    flags: list[SofteningFlag] = field(default_factory=list)
+    pairs_consulted: int = len(DOWNGRADE_PAIRS)
+    scope_note: str = "closed 1:1 table; off-table synonyms not evaluated"
+    # S8-06 P2 (wont_fix_by_design): the D2 verdict-word scan requires a
+    # copula before the noun ("he's a liar") — bare nominals ("the
+    # manipulator on the team") are not flagged. Disclosed here per the
+    # adjudicated contract rather than removed.
+    grammar_required: str = "copula"
+
+
+def detect_softening(original: str, restatement: str) -> SofteningResult:
     """Compare the teller's words against a restatement (D5).
 
     Catches: strong terms downgraded to soft ones, strong terms dropped
@@ -513,6 +537,10 @@ def detect_softening(original: str, restatement: str) -> list[SofteningFlag]:
     phrases in the restatement. What it cannot catch — generous
     interpretations supplied unasked, evasive answers — stays operator
     protocol (see disciplines.py D5).
+
+    Returns a SofteningResult (PARAM-POSTMO-016), not a bare list — the
+    result carries the coverage (pairs consulted, scope note) so the
+    call site can tell "no flags" apart from "text is clean".
     """
     flags: list[SofteningFlag] = []
     for strong, soft in DOWNGRADE_PAIRS:
@@ -541,7 +569,7 @@ def detect_softening(original: str, restatement: str) -> list[SofteningFlag]:
             kind="ambivalence-resolved",
             detail=f"Restatement resolves ambivalence: {ambivalence.group(0)!r}.",
         ))
-    return flags
+    return SofteningResult(flags=flags)
 
 
 # --- Batch audit: run every mechanical check at once ----------------------------
@@ -554,12 +582,23 @@ class ScanReport:
     verdict_words: list[VerdictWordHit] = field(default_factory=list)
     correction_candidates: list[CorrectionCandidate] = field(default_factory=list)
     motive_flags: list[MotiveFlag] = field(default_factory=list)
-    softening_flags: list[SofteningFlag] = field(default_factory=list)
     correction_coverage: list[CorrectionCoverage] = field(default_factory=list)
-    # PARAM-POSTMO-015: the D5 softening comparison only runs when the
-    # caller supplies a restatement. "Softening not checked" is not
-    # "no softening found" — the report keeps the two distinct.
-    softening_checked: bool = False
+    # PARAM-POSTMO-016: the D5 softening comparison returns a
+    # coverage-carrying SofteningResult. None = D5 not checked (no
+    # restatement supplied) — "softening not checked" is not "no
+    # softening found" (PARAM-POSTMO-015).
+    softening: SofteningResult | None = None
+
+    @property
+    def softening_flags(self) -> list[SofteningFlag]:
+        """The D5 flags ([] when D5 was not checked). Kept so callers
+        iterating flags directly keep working."""
+        return self.softening.flags if self.softening is not None else []
+
+    @property
+    def softening_checked(self) -> bool:
+        """True when the D5 comparison ran (a restatement was supplied)."""
+        return self.softening is not None
 
     def clean(self) -> bool:
         """True when every check ran and none fired.
@@ -568,17 +607,17 @@ class ScanReport:
         an unchecked D5 is not a clean bill of health (PARAM-POSTMO-015).
         See the honesty note at the top of this module.
         """
-        return self.softening_checked and not (
+        return self.softening is not None and not (
             self.subordinators or self.verdict_words
             or self.correction_candidates or self.motive_flags
-            or self.softening_flags
+            or self.softening.flags
         )
 
     def softening_state(self) -> str:
         """The D5 state, explicit: "not-checked" | "clean" | "flagged"."""
-        if not self.softening_checked:
+        if self.softening is None:
             return "not-checked"
-        return "flagged" if self.softening_flags else "clean"
+        return "flagged" if self.softening.flags else "clean"
 
 
 def scan_text(text: str, *, restatement: str = "",
@@ -604,7 +643,6 @@ def scan_text(text: str, *, restatement: str = "",
         verdict_words=find_verdict_words(text),
         correction_candidates=candidates,
         motive_flags=detect_supplied_motive(text),
-        softening_flags=detect_softening(text, restatement) if restatement else [],
         correction_coverage=correction_coverage(text, typed),
-        softening_checked=bool(restatement),
+        softening=detect_softening(text, restatement) if restatement else None,
     )

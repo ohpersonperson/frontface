@@ -30,7 +30,7 @@ from .record import (
 from .scans import (
     Correction, CorrectionCandidate, CorrectionCoverage, HeldTension,
     MotiveFlag, PersonState, ScanError, ScanReport, SofteningFlag,
-    VerdictWordHit, correction_coverage, detect_softening,
+    SofteningResult, VerdictWordHit, correction_coverage, detect_softening,
     detect_supplied_motive, find_correction_candidates, find_subordinators,
     find_verdict_words, render_correction_coverage, scan_text,
 )
@@ -44,8 +44,8 @@ __all__ = [
     "check_stand_down", "parse", "utc_now",
     "Correction", "CorrectionCandidate", "CorrectionCoverage",
     "HeldTension", "MotiveFlag", "PersonState", "ScanError", "ScanReport",
-    "SofteningFlag", "VerdictWordHit", "correction_coverage",
-    "detect_softening", "detect_supplied_motive",
+    "SofteningFlag", "SofteningResult", "VerdictWordHit",
+    "correction_coverage", "detect_softening", "detect_supplied_motive",
     "find_correction_candidates", "find_subordinators", "find_verdict_words",
     "render_correction_coverage", "scan_text",
 ]

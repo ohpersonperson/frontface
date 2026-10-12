@@ -10,11 +10,11 @@ from postmo.disciplines import D1, D2, D3, D4, D5, DISCIPLINES, discipline_name
 
 AUDIT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from postmo.scans import (
-    Correction, CorrectionCandidate, CorrectionCoverage, HeldTension,
-    MotiveFlag, PersonState, ScanError, correction_coverage,
-    detect_softening, detect_supplied_motive, find_correction_candidates,
-    find_subordinators, find_verdict_words, render_correction_coverage,
-    scan_text,
+    DOWNGRADE_PAIRS, Correction, CorrectionCandidate, CorrectionCoverage,
+    HeldTension, MotiveFlag, PersonState, ScanError, ScanReport,
+    SofteningResult, correction_coverage, detect_softening,
+    detect_supplied_motive, find_correction_candidates, find_subordinators,
+    find_verdict_words, render_correction_coverage, scan_text,
 )
 
 
@@ -291,39 +291,113 @@ class MotiveScanTest(unittest.TestCase):
 
 class SofteningScanTest(unittest.TestCase):
     def test_downgrade_betrayal_to_mistake(self):
-        flags = detect_softening(
+        result = detect_softening(
             "It was a betrayal of my trust.", "It was a mistake."
         )
-        kinds = [f.kind for f in flags]
+        self.assertIsInstance(result, SofteningResult)
+        kinds = [f.kind for f in result.flags]
         self.assertIn("downgrade", kinds)
-        down = next(f for f in flags if f.kind == "downgrade")
+        down = next(f for f in result.flags if f.kind == "downgrade")
         self.assertEqual(down.original_term, "betrayal")
         self.assertEqual(down.replacement, "mistake")
 
     def test_dropped_strong_term(self):
-        flags = detect_softening("He lied to me.", "It was complicated.")
+        result = detect_softening("He lied to me.", "It was complicated.")
         self.assertTrue(any(
-            f.kind == "dropped" and f.original_term == "lied" for f in flags
+            f.kind == "dropped" and f.original_term == "lied"
+            for f in result.flags
         ))
 
     def test_strong_term_kept_is_clean(self):
-        self.assertEqual(
-            detect_softening("He lied to me.", "He lied, and it hurt."), []
-        )
+        result = detect_softening("He lied to me.", "He lied, and it hurt.")
+        self.assertEqual(result.flags, [])
 
     def test_tidy_restatement_phrase(self):
-        flags = detect_softening(
+        result = detect_softening(
             "I adored her. I'm furious at her.",
             "So what you're saying is you have mixed feelings.",
         )
-        self.assertTrue(any(f.kind == "tidy-restatement" for f in flags))
+        self.assertTrue(any(f.kind == "tidy-restatement"
+                            for f in result.flags))
 
     def test_ambivalence_resolved(self):
-        flags = detect_softening(
+        result = detect_softening(
             "I adored her. I'm furious at her.",
             "The real feeling underneath is anger.",
         )
-        self.assertTrue(any(f.kind == "ambivalence-resolved" for f in flags))
+        self.assertTrue(any(f.kind == "ambivalence-resolved"
+                            for f in result.flags))
+
+
+class SofteningResultTest(unittest.TestCase):
+    def test_result_carries_coverage(self):
+        result = detect_softening("He lied to me.", "He lied, and it hurt.")
+        self.assertEqual(result.pairs_consulted, len(DOWNGRADE_PAIRS))
+        self.assertEqual(result.scope_note,
+                         "closed 1:1 table; off-table synonyms not evaluated")
+        self.assertEqual(result.grammar_required, "copula")
+
+    def test_downgrade_table_stays_closed(self):
+        # PARAM-POSTMO-016: the table itself is wont_change — pin the
+        # size so an accidental expansion trips loudly.
+        self.assertEqual(len(DOWNGRADE_PAIRS), 23)
+        self.assertIn(("betrayal", "mistake"), DOWNGRADE_PAIRS)
+
+    def test_matching_semantics_untouched_exact_flag_sequence(self):
+        # Regression parity: the exact flag sequence for a multi-hit
+        # input — kinds, terms, and order — is unchanged by the return
+        # contract (pairs loop order, then tidy, then ambivalence).
+        result = detect_softening(
+            "It was a betrayal. He lied to me.",
+            "So what you're saying is it was a mistake.",
+        )
+        self.assertEqual(
+            [(f.kind, f.original_term, f.replacement)
+             for f in result.flags],
+            [("downgrade", "betrayal", "mistake"),
+             ("dropped", "lied", ""),
+             ("tidy-restatement", "", "")],
+        )
+
+    def test_softening_checked_property(self):
+        self.assertTrue(scan_text(
+            "He arrived at three.", restatement="He arrived.").softening_checked)
+        self.assertFalse(
+            scan_text("He arrived at three.").softening_checked)
+
+    def test_report_constructible_with_result_directly(self):
+        from postmo.scans import SofteningFlag
+        result = SofteningResult(flags=[SofteningFlag(
+            kind="dropped", detail="'lied' vanished.")])
+        report = ScanReport(softening=result)
+        self.assertEqual(report.softening_state(), "flagged")
+        self.assertFalse(report.clean())
+        self.assertEqual(len(report.softening_flags), 1)
+
+    def test_empty_flags_distinguishable_from_unchecked(self):
+        # D5 ran, no flags: the result exists and is empty — "no tripwire
+        # fired", not "text is clean".
+        checked = scan_text(
+            "He arrived at three.",
+            restatement="He arrived at three.",
+        )
+        self.assertIsNotNone(checked.softening)
+        self.assertEqual(checked.softening.flags, [])
+        self.assertEqual(checked.softening_state(), "clean")
+        self.assertTrue(checked.clean())
+        # D5 never ran: no result at all.
+        unchecked = scan_text("He arrived at three.")
+        self.assertIsNone(unchecked.softening)
+        self.assertEqual(unchecked.softening_state(), "not-checked")
+        self.assertFalse(unchecked.clean())
+
+    def test_report_softening_flags_property(self):
+        unchecked = scan_text("He arrived at three.")
+        self.assertEqual(unchecked.softening_flags, [])
+        flagged = scan_text("He lied to me.",
+                              restatement="It was complicated.")
+        self.assertEqual(flagged.softening_flags, flagged.softening.flags)
+        self.assertTrue(flagged.softening_flags)
 
 
 class BatchScanTest(unittest.TestCase):
