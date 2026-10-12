@@ -1,8 +1,14 @@
 """Tests for the mechanical linter checks (scans.py) and the discipline table."""
 
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from postmo.disciplines import D1, D2, D3, D4, D5, DISCIPLINES, discipline_name
+
+AUDIT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from postmo.scans import (
     Correction, CorrectionCandidate, CorrectionCoverage, HeldTension,
     MotiveFlag, PersonState, ScanError, correction_coverage,
@@ -333,11 +339,64 @@ class BatchScanTest(unittest.TestCase):
         self.assertTrue(report.softening_flags)
         self.assertFalse(report.clean())
 
-    def test_scan_text_clean(self):
+    def test_scan_text_clean_with_restatement(self):
+        report = scan_text(
+            "He arrived at three. She left at four. Both of those happened.",
+            restatement="He arrived at three. She left at four.",
+        )
+        self.assertTrue(report.softening_checked)
+        self.assertEqual(report.softening_state(), "clean")
+        self.assertTrue(report.clean())
+
+    def test_scan_text_not_clean_when_d5_unchecked(self):
+        # PARAM-POSTMO-015: no restatement → D5 never ran → the report
+        # must not claim clean, and the state says so explicitly.
         report = scan_text(
             "He arrived at three. She left at four. Both of those happened."
         )
-        self.assertTrue(report.clean())
+        self.assertFalse(report.softening_checked)
+        self.assertEqual(report.softening_state(), "not-checked")
+        self.assertFalse(report.clean())
+
+    def test_softening_state_flagged(self):
+        report = scan_text(
+            "It was a betrayal of my trust.",
+            restatement="It was a mistake.",
+        )
+        self.assertTrue(report.softening_checked)
+        self.assertEqual(report.softening_state(), "flagged")
+        self.assertFalse(report.clean())
+
+
+class LintExampleTest(unittest.TestCase):
+    def _run_lint(self, draft_text, extra_args=()):
+        with tempfile.TemporaryDirectory() as tmp:
+            draft = os.path.join(tmp, "draft.txt")
+            with open(draft, "w", encoding="utf-8") as f:
+                f.write(draft_text)
+            env = dict(os.environ,
+                       PYTHONPATH=os.path.join(AUDIT_DIR, "src"))
+            return subprocess.run(
+                [sys.executable, "examples/lint_audit.py",
+                 "--text", draft, *extra_args],
+                capture_output=True, text=True, cwd=AUDIT_DIR, env=env,
+            )
+
+    def test_cli_prints_unchecked_d5_notice(self):
+        proc = self._run_lint("He arrived at three. She left at four.\n")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("softening not checked", proc.stdout)
+        self.assertIn("Not checked' is not 'no softening found'", proc.stdout)
+
+    def test_cli_no_notice_when_restatement_given(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rest = os.path.join(tmp, "rest.txt")
+            with open(rest, "w", encoding="utf-8") as f:
+                f.write("He arrived at three.\n")
+            proc = self._run_lint("He arrived at three. She left at four.\n",
+                                  extra_args=("--restatement", rest))
+        self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("softening not checked", proc.stdout)
 
 
 if __name__ == "__main__":

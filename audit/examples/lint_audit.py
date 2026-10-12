@@ -86,6 +86,10 @@ def main() -> int:
         else:
             print("     Marked as a guess — allowed, but it must stay marked.")
         print()
+    if not report.softening_checked:
+        print("[D5] softening not checked — no restatement supplied.")
+        print("     'Not checked' is not 'no softening found'.")
+        print()
     for flag in report.softening_flags:
         print(f"[D5] softening [{flag.kind}]:")
         print(f"     {flag.detail}")

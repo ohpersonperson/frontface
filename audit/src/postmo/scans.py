@@ -556,13 +556,29 @@ class ScanReport:
     motive_flags: list[MotiveFlag] = field(default_factory=list)
     softening_flags: list[SofteningFlag] = field(default_factory=list)
     correction_coverage: list[CorrectionCoverage] = field(default_factory=list)
+    # PARAM-POSTMO-015: the D5 softening comparison only runs when the
+    # caller supplies a restatement. "Softening not checked" is not
+    # "no softening found" — the report keeps the two distinct.
+    softening_checked: bool = False
 
     def clean(self) -> bool:
-        """True when no check fired. Not a clean bill of health — see the
-        honesty note at the top of this module."""
-        return not (self.subordinators or self.verdict_words
-                    or self.correction_candidates or self.motive_flags
-                    or self.softening_flags)
+        """True when every check ran and none fired.
+
+        Never true when the D5 softening comparison was not checked —
+        an unchecked D5 is not a clean bill of health (PARAM-POSTMO-015).
+        See the honesty note at the top of this module.
+        """
+        return self.softening_checked and not (
+            self.subordinators or self.verdict_words
+            or self.correction_candidates or self.motive_flags
+            or self.softening_flags
+        )
+
+    def softening_state(self) -> str:
+        """The D5 state, explicit: "not-checked" | "clean" | "flagged"."""
+        if not self.softening_checked:
+            return "not-checked"
+        return "flagged" if self.softening_flags else "clean"
 
 
 def scan_text(text: str, *, restatement: str = "",
@@ -570,11 +586,14 @@ def scan_text(text: str, *, restatement: str = "",
     """Run every mechanical check over `text`.
 
     Pass the auditor's restatement as `restatement` to enable the D5
-    softening comparison. Pass the operator's typed Corrections as
-    `typed` to enable the D3 typing-coverage report (PARAM-POSTMO-002):
-    typed sentences drop off the candidate list, and the report carries
-    every sentence with its typing status. Everything that fires is a
-    REVIEW item for the operator — the scan finds, the operator decides.
+    softening comparison. Without it the D5 check does not run, the
+    report records softening as "not-checked", and clean() is False —
+    an unchecked D5 never reports clean (PARAM-POSTMO-015). Pass the
+    operator's typed Corrections as `typed` to enable the D3
+    typing-coverage report (PARAM-POSTMO-002): typed sentences drop off
+    the candidate list, and the report carries every sentence with its
+    typing status. Everything that fires is a REVIEW item for the
+    operator — the scan finds, the operator decides.
     """
     typed = list(typed)  # generators are one-shot; materialize once
     typed_keys = {_norm(c.text) for c in typed}
@@ -587,4 +606,5 @@ def scan_text(text: str, *, restatement: str = "",
         motive_flags=detect_supplied_motive(text),
         softening_flags=detect_softening(text, restatement) if restatement else [],
         correction_coverage=correction_coverage(text, typed),
+        softening_checked=bool(restatement),
     )
