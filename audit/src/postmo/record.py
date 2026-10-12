@@ -238,8 +238,28 @@ def _section_text(rendered: str, key: str) -> str:
     if not match:
         return ""
     tail = rendered[match.end():]
+    # Consume the rest of the heading line (" (discipline 1)" etc.) —
+    # it is heading, not section content.
+    newline = tail.find("\n")
+    tail = tail[newline + 1:] if newline != -1 else ""
     next_heading = re.search(r"^## ", tail, re.MULTILINE)
     return tail[: next_heading.start()] if next_heading else tail
+
+
+def _deviations(rendered: str) -> list[str]:
+    """Non-schema lines inside record sections.
+
+    PARAM-POSTMO-013: a line inside a section that is neither blank nor
+    a "- " schema item is a deviation — the canonical archive must not
+    eat its own marginalia. Returns "section: line N: 'content'" strings.
+    """
+    found: list[str] = []
+    for key in _SECTION_RES:
+        for lineno, line in enumerate(
+                _section_text(rendered, key).splitlines(), 1):
+            if line.strip() and not line.startswith("- "):
+                found.append(f"{key}: line {lineno}: {line.strip()!r}")
+    return found
 
 
 def parse(rendered: str) -> AuditRecord:
@@ -248,9 +268,20 @@ def parse(rendered: str) -> AuditRecord:
     Round-trip fidelity: case name, lifecycle, date, and every
     structured section survive. Items re-validate on the way in —
     a hand-edited record with a subordinating tension or a bad tag
-    fails here, not silently.
+    fails here, not silently. PARAM-POSTMO-013: parse() is loud about
+    non-schema lines — a hand annotation inside a section is rejected
+    (RecordError naming the line), never silently swallowed.
     """
     check_stand_down(rendered)
+    deviations = _deviations(rendered)
+    if deviations:
+        raise RecordError(
+            "Non-schema lines inside record sections "
+            f"({len(deviations)}):\n"
+            + "\n".join(f"  - {d}" for d in deviations)
+            + "\nparse() does not swallow marginalia — move hand "
+            "annotations to the Evidence section as '- [tag] text' items."
+        )
     front = dict(
         line.split(":", 1)
         for line in rendered.splitlines()

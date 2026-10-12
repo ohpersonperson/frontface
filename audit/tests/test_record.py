@@ -128,6 +128,43 @@ class RecordRoundTripTest(unittest.TestCase):
         twice = parse(once.render())
         self.assertEqual(once.render(), twice.render())
 
+    def test_parse_rejects_hand_annotation_in_section(self):
+        rendered = sample_record().render().replace(
+            "## Corrections (discipline 3)\n",
+            "## Corrections (discipline 3)\n"
+            "(hand note: double-check the Tuesday claim)\n",
+        )
+        with self.assertRaises(RecordError) as ctx:
+            parse(rendered)
+        message = str(ctx.exception)
+        self.assertIn("Non-schema lines", message)
+        self.assertIn("double-check the Tuesday claim", message)
+        self.assertIn("Evidence section", message)
+
+    def test_parse_rejects_multiple_deviations_at_once(self):
+        rendered = sample_record().render()
+        rendered = rendered.replace(
+            "## Held tensions (discipline 1)\n",
+            "## Held tensions (discipline 1)\nnote one\n",
+        ).replace(
+            "## Evidence\n",
+            "## Evidence\nnote two\n",
+        )
+        with self.assertRaises(RecordError) as ctx:
+            parse(rendered)
+        message = str(ctx.exception)
+        self.assertIn("(2)", message)
+        self.assertIn("note one", message)
+        self.assertIn("note two", message)
+
+    def test_parse_tolerates_blank_lines_in_sections(self):
+        rendered = sample_record().render().replace(
+            "## Corrections (discipline 3)\n",
+            "## Corrections (discipline 3)\n\n   \n",
+        )
+        rec = parse(rendered)
+        self.assertEqual(len(rec.corrections), 2)
+
 
 def rec_tension_texts():
     return [t.text for t in parse(sample_record().render()).tensions]
