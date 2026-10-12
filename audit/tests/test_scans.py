@@ -226,6 +226,44 @@ class MotiveScanTest(unittest.TestCase):
             detect_supplied_motive("He said he panicked when it happened."), []
         )
 
+    def test_bare_quote_is_not_attribution(self):
+        # Scare quotes must not pass as sourcing (PARAM-POSTMO-014):
+        # the quote alone no longer suppresses the motive flag.
+        flags = detect_supplied_motive(
+            "He panicked and \"ran\" when it happened.")
+        self.assertEqual(len(flags), 1)
+        self.assertEqual(flags[0].severity, "flag")
+
+    def test_quote_adjacent_speech_verb_is_attribution(self):
+        self.assertEqual(
+            detect_supplied_motive("\"He panicked and ran,\" she admitted."),
+            [])
+        self.assertEqual(
+            detect_supplied_motive("She admitted, \"He panicked and ran.\""),
+            [])
+        self.assertEqual(
+            detect_supplied_motive(
+                "\"He panicked and ran,\" the witness admitted."), []
+        )
+        self.assertEqual(
+            detect_supplied_motive("The report quotes him: "
+                                   "\"He panicked and ran.\""),
+            [])
+
+    def test_verb_in_unrelated_clause_is_not_attribution(self):
+        # "admitted" belongs to another clause — the scare quote stays
+        # unattributed. ("said" would be a marker regardless.)
+        flags = detect_supplied_motive(
+            "He panicked and \"ran\" when the witness admitted "
+            "he was afraid.")
+        self.assertEqual(len(flags), 1)
+        self.assertEqual(flags[0].severity, "flag")
+
+    def test_quote_with_marker_still_clean(self):
+        self.assertEqual(
+            detect_supplied_motive("\"He panicked and ran,\" she said."), []
+        )
+
     def test_marked_guess_is_allowed_but_kept(self):
         flags = detect_supplied_motive("If I had to guess, he panicked.")
         self.assertEqual(len(flags), 1)

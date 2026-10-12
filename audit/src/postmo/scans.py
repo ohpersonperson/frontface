@@ -349,8 +349,31 @@ MOTIVE_PATTERNS = (
 )
 
 _MOTIVE_RES = tuple(re.compile(p, re.IGNORECASE) for p in MOTIVE_PATTERNS)
+
+# Speech verbs that pair with a quote to form attribution context.
+# PARAM-POSTMO-014: a bare double-quote alone is NOT attribution — scare
+# quotes must not pass as sourcing. Quoted material counts as attributed
+# only with a recognizable source: an attribution marker, or a speech
+# verb in a dialogue tag directly beside the quote (", she said" /
+# "she said, "). "Adjacent" is deliberately tight — a verb in another
+# clause ("when the witness said") does not attribute the quote. A miss
+# here fails toward a flag, and a flag is a REVIEW item: the operator
+# decides, which is the safe direction for an audit tripwire.
+_QUOTE_VERBS = (
+    "said", "stated", "told", "asked", "replied", "answered",
+    "explained", "claimed", "admitted", "insisted", "recalled",
+    "described", "reported", "wrote", "shouted", "whispered", "muttered",
+    "quotes", "quoted",
+)
+_VERB_ALT = "|".join(re.escape(v) for v in _QUOTE_VERBS)
+# A dialogue-tag speaker: pronoun, "the <noun>", or a capitalized name
+# (possibly multi-word: "Jane Doe"). Case-sensitive on the name so a
+# lowercase clause word ("when the witness admitted") can't pose as one.
+_SPEAKER = r"(?:he|she|they|i|we|you|the\s+\w+|(?-i:[A-Z])[\w.]*(?:\s+(?-i:[A-Z])[\w.]*)*)"
 _ATTRIBUTION_RE = re.compile(
-    r"\b(" + "|".join(re.escape(m) for m in ATTRIBUTION_MARKERS) + r")\b|\"",
+    r"\b(" + "|".join(re.escape(m) for m in ATTRIBUTION_MARKERS) + r")\b"
+    r"|\b(" + _VERB_ALT + r")\b(?:\s+(?:him|her|them|me|us|it))?[,\s:]{0,6}\""
+    r"|\"[,\s:]{0,6}(?:" + _SPEAKER + r"\s+)?\b(" + _VERB_ALT + r")\b",
     re.IGNORECASE,
 )
 _GUESS_RE = re.compile(
@@ -385,7 +408,9 @@ def detect_supplied_motive(text: str) -> list[MotiveFlag]:
 
     "He tackled you because he panicked" → flag. "He said he panicked"
     → clean (the teller assigned the why). "If I had to guess, he
-    panicked" → guess (allowed, kept marked).
+    panicked" → guess (allowed, kept marked). Scare quotes are not
+    attribution: 'He panicked and "ran"' → flag, while '"He panicked,"
+    she admitted' → clean (quote-adjacent speech verb).
     """
     flags: list[MotiveFlag] = []
     for sentence in sentences(text):
