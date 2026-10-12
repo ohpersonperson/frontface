@@ -28,10 +28,11 @@ from .record import (
     utc_now,
 )
 from .scans import (
-    Correction, CorrectionCandidate, HeldTension, MotiveFlag, PersonState,
-    ScanError, ScanReport, SofteningFlag, VerdictWordHit,
-    detect_softening, detect_supplied_motive, find_correction_candidates,
-    find_subordinators, find_verdict_words, scan_text,
+    Correction, CorrectionCandidate, CorrectionCoverage, HeldTension,
+    MotiveFlag, PersonState, ScanError, ScanReport, SofteningFlag,
+    VerdictWordHit, correction_coverage, detect_softening,
+    detect_supplied_motive, find_correction_candidates, find_subordinators,
+    find_verdict_words, render_correction_coverage, scan_text,
 )
 
 __all__ = [
@@ -41,9 +42,10 @@ __all__ = [
     "NEVER", "attachment_for", "describe_contract",
     "PROTOCOL", "AuditRecord", "DisciplineEntry", "RecordError",
     "check_stand_down", "parse", "utc_now",
-    "Correction", "CorrectionCandidate", "HeldTension", "MotiveFlag",
-    "PersonState", "ScanError", "ScanReport", "SofteningFlag",
-    "VerdictWordHit", "detect_softening", "detect_supplied_motive",
+    "Correction", "CorrectionCandidate", "CorrectionCoverage",
+    "HeldTension", "MotiveFlag", "PersonState", "ScanError", "ScanReport",
+    "SofteningFlag", "VerdictWordHit", "correction_coverage",
+    "detect_softening", "detect_supplied_motive",
     "find_correction_candidates", "find_subordinators", "find_verdict_words",
-    "scan_text",
+    "render_correction_coverage", "scan_text",
 ]

@@ -4,9 +4,10 @@ import unittest
 
 from postmo.disciplines import D1, D2, D3, D4, D5, DISCIPLINES, discipline_name
 from postmo.scans import (
-    Correction, CorrectionCandidate, HeldTension, MotiveFlag, PersonState,
-    ScanError, detect_softening, detect_supplied_motive,
-    find_correction_candidates, find_subordinators, find_verdict_words,
+    Correction, CorrectionCandidate, CorrectionCoverage, HeldTension,
+    MotiveFlag, PersonState, ScanError, correction_coverage,
+    detect_softening, detect_supplied_motive, find_correction_candidates,
+    find_subordinators, find_verdict_words, render_correction_coverage,
     scan_text,
 )
 
@@ -103,6 +104,113 @@ class CorrectionTypingTest(unittest.TestCase):
         self.assertEqual(
             find_correction_candidates("The meeting was at two. Dana agreed."), []
         )
+
+
+class CorrectionCoverageTest(unittest.TestCase):
+    TEXT = ("The meeting was at two. Actually, it was at three. "
+            "Dana agreed to the plan.")
+
+    def test_statuses_typed_candidate_unmarked(self):
+        typed = [Correction(kind="detail", text="Actually, it was at three.")]
+        rows = correction_coverage(self.TEXT, typed)
+        self.assertEqual([r.status for r in rows],
+                         ["unmarked", "typed", "unmarked"])
+        self.assertEqual(rows[1].kind, "detail")
+        self.assertEqual(rows[1].marker, "actually")
+
+    def test_candidate_carries_marker_when_untyped(self):
+        rows = correction_coverage(self.TEXT)
+        cand = rows[1]
+        self.assertEqual(cand.status, "candidate")
+        self.assertEqual(cand.marker, "actually")
+        self.assertEqual(cand.kind, "")
+
+    def test_typed_matches_on_stripped_text(self):
+        typed = [Correction(kind="core-claim",
+                            text="  Actually, it was at three.  ")]
+        rows = correction_coverage(self.TEXT, typed)
+        self.assertEqual(rows[1].status, "typed")
+        self.assertEqual(rows[1].kind, "core-claim")
+
+    def test_typed_matching_is_case_insensitive(self):
+        typed = [Correction(kind="detail",
+                            text="aCtUaLlY, It WaS aT tHrEe.")]
+        rows = correction_coverage(self.TEXT, typed)
+        self.assertEqual(rows[1].status, "typed")
+        self.assertEqual(rows[1].kind, "detail")
+
+    def test_first_typed_correction_wins_on_duplicates(self):
+        typed = [Correction(kind="detail", text="Actually, it was at three."),
+                 Correction(kind="core-claim",
+                            text="ACTUALLY, IT WAS AT THREE.")]
+        rows = correction_coverage(self.TEXT, typed)
+        self.assertEqual(rows[1].status, "typed")
+        self.assertEqual(rows[1].kind, "detail")
+
+    def test_unmatched_typed_correction_is_surfaced_not_dropped(self):
+        typed = [Correction(kind="detail", text="A sentence from nowhere.")]
+        rows = correction_coverage(self.TEXT, typed)
+        self.assertEqual(len(rows), 4)
+        orphan = rows[3]
+        self.assertEqual(orphan.status, "unmatched")
+        self.assertEqual(orphan.kind, "detail")
+        self.assertEqual(orphan.sentence, "A sentence from nowhere.")
+
+    def test_empty_text_has_no_rows(self):
+        self.assertEqual(correction_coverage("   "), [])
+
+    def test_coverage_row_rejects_bad_status_and_kind(self):
+        with self.assertRaises(ScanError):
+            CorrectionCoverage(sentence="x.", status="maybe")
+        with self.assertRaises(ScanError):
+            CorrectionCoverage(sentence="x.", status="typed", kind="typo")
+        with self.assertRaises(ScanError):
+            CorrectionCoverage(sentence="  ", status="unmarked")
+
+    def test_render_publishes_every_sentence_with_status(self):
+        text = (self.TEXT + " To be clear, the venue changed.")
+        typed = [Correction(kind="detail", text="Actually, it was at three."),
+                 Correction(kind="core-claim",
+                            text="A sentence from nowhere.")]
+        rendered = render_correction_coverage(text, typed)
+        self.assertIn("## Correction typing coverage (discipline 3)",
+                      rendered)
+        self.assertIn("- [unmarked] The meeting was at two.", rendered)
+        self.assertIn("- [typed: detail] (marker: 'actually') "
+                      "Actually, it was at three.", rendered)
+        self.assertIn("- [untyped candidate] (marker: 'to be clear,') "
+                      "To be clear, the venue changed.", rendered)
+        self.assertIn("- [unmarked] Dana agreed to the plan.", rendered)
+        self.assertIn("## Typed corrections not found in the text", rendered)
+        self.assertIn("- [unmatched: core-claim] A sentence from nowhere.",
+                      rendered)
+
+    def test_scan_text_carries_coverage_and_filters_typed_candidates(self):
+        typed = [Correction(kind="detail",
+                            text="actually, it was at three.")]
+        report = scan_text(self.TEXT, typed=typed)
+        self.assertEqual([r.status for r in report.correction_coverage],
+                         ["unmarked", "typed", "unmarked"])
+        self.assertEqual(report.correction_coverage[1].kind, "detail")
+        # The typed sentence drops off the needs-typing candidate list.
+        self.assertEqual(report.correction_candidates, [])
+
+    def test_typed_accepts_a_generator(self):
+        def gen():
+            yield Correction(kind="detail", text="Actually, it was at three.")
+            yield Correction(kind="core-claim",
+                             text="A sentence from nowhere.")
+        report = scan_text(self.TEXT, typed=gen())
+        self.assertEqual([r.status for r in report.correction_coverage],
+                         ["unmarked", "typed", "unmarked", "unmatched"])
+        self.assertEqual(report.correction_candidates, [])
+
+    def test_scan_text_without_typed_is_unchanged(self):
+        report = scan_text(self.TEXT)
+        self.assertEqual(len(report.correction_candidates), 1)
+        self.assertEqual(report.correction_candidates[0].marker, "actually")
+        self.assertEqual([r.status for r in report.correction_coverage],
+                         ["unmarked", "candidate", "unmarked"])
 
 
 class MotiveScanTest(unittest.TestCase):

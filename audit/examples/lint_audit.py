@@ -15,7 +15,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from postmo import scan_text
+from postmo import Correction, render_correction_coverage, scan_text
+from postmo.scans import CORRECTION_KINDS
 
 
 def main() -> int:
@@ -24,6 +25,10 @@ def main() -> int:
     parser.add_argument("--restatement", default="",
                         help="The auditor's restatement (enables the D5 "
                              "softening comparison).")
+    parser.add_argument("--typed", default="",
+                        help="File of operator-typed corrections, one per "
+                             "line as 'kind: sentence text' (feeds the D3 "
+                             "typing-coverage report).")
     args = parser.parse_args()
 
     with open(args.text, encoding="utf-8") as f:
@@ -33,7 +38,25 @@ def main() -> int:
         with open(args.restatement, encoding="utf-8") as f:
             restatement = f.read()
 
-    report = scan_text(text, restatement=restatement)
+    typed: list[Correction] = []
+    if args.typed:
+        with open(args.typed, encoding="utf-8") as f:
+            for lineno, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                kind, sep, sentence = line.partition(":")
+                kind, sentence = kind.strip(), sentence.strip()
+                if not sep or kind not in CORRECTION_KINDS or not sentence:
+                    print(f"warning: {args.typed}:{lineno}: skipping "
+                          f"malformed typed-correction line: {line!r}",
+                          file=sys.stderr)
+                    continue
+                typed.append(Correction(kind=kind, text=sentence))
+
+    report = scan_text(text, restatement=restatement, typed=typed)
+    print(render_correction_coverage(text, typed))
+    print()
     if report.clean():
         print("No mechanical flags. (Not a clean bill of health — "
               "see the discipline table for what stays human.)")

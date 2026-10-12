@@ -20,6 +20,7 @@ disagree. See README "Overlap with evasion_audit".
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 
@@ -183,16 +184,137 @@ class CorrectionCandidate:
     marker: str
 
 
+def _marker_for(sentence: str) -> str:
+    """First correction marker found in the sentence, or "".
+
+    Shared with find_correction_candidates so the two can't drift.
+    """
+    lowered = sentence.lower()
+    return next((m for m in CORRECTION_MARKERS if m in lowered), "")
+
+
+def _norm(text: str) -> str:
+    """Match key for operator-typed text: stripped, case-folded."""
+    return text.strip().casefold()
+
+
 def find_correction_candidates(text: str) -> list[CorrectionCandidate]:
     """Flag correction-like sentences that need typing (D3, operator step)."""
     found: list[CorrectionCandidate] = []
     for sentence in sentences(text):
-        lowered = sentence.lower()
-        for marker in CORRECTION_MARKERS:
-            if marker in lowered:
-                found.append(CorrectionCandidate(sentence=sentence, marker=marker))
-                break
+        marker = _marker_for(sentence)
+        if marker:
+            found.append(CorrectionCandidate(sentence=sentence, marker=marker))
     return found
+
+
+@dataclass(frozen=True)
+class CorrectionCoverage:
+    """One sentence's typing status, published in the final report.
+
+    PARAM-POSTMO-002: typing stays human, but the untyped becomes
+    visible. status "typed": the operator typed this sentence (kind
+    recorded). status "candidate": a marker fired but the operator did
+    not type it — the reader sees the choice not to type. status
+    "unmarked": no marker fired, so it was never surfaced for typing.
+    status "unmatched": a typed Correction whose text matches no
+    sentence of the text — surfaced, never silently dropped.
+    marker: the correction marker found in the sentence, when any.
+    """
+
+    sentence: str
+    status: str  # "typed" | "candidate" | "unmarked" | "unmatched"
+    kind: str = ""  # "detail" | "core-claim", when typed or unmatched
+    marker: str = ""  # the marker that fired, when any
+
+    def __post_init__(self) -> None:
+        if self.status not in ("typed", "candidate", "unmarked", "unmatched"):
+            raise ScanError(f"Bad coverage status: {self.status!r}.")
+        if self.status in ("typed", "unmatched") \
+                and self.kind not in CORRECTION_KINDS:
+            raise ScanError(
+                f"Typed coverage needs a correction kind, got {self.kind!r}."
+            )
+        if not self.sentence.strip():
+            raise ScanError("Coverage row needs the sentence.")
+
+
+def correction_coverage(
+    text: str, typed: Iterable[Correction] = ()
+) -> list[CorrectionCoverage]:
+    """Typing-coverage audit for the final report (D3, PARAM-POSTMO-002).
+
+    Publishes every sentence with its typing status — marked, unmarked,
+    typed, untyped — so readers see what the operator chose not to
+    type. `typed` is the operator's typed Corrections; a Correction
+    matches a sentence when its text matches the sentence after
+    stripping and case-folding. A typed Correction whose text matches no
+    sentence is appended with status "unmatched" — surfaced, never
+    silently dropped. Duplicate typed Corrections for one sentence:
+    the first wins. `typed` may be any iterable (generators included) —
+    it is materialized once up front.
+    """
+    typed = list(typed)
+    typed_by_text: dict[str, str] = {}
+    for correction in typed:
+        typed_by_text.setdefault(_norm(correction.text), correction.kind)
+    rows: list[CorrectionCoverage] = []
+    matched: set[str] = set()
+    for sentence in sentences(text):
+        marker = _marker_for(sentence)
+        key = _norm(sentence)
+        if key in typed_by_text:
+            matched.add(key)
+            rows.append(CorrectionCoverage(
+                sentence=sentence, status="typed",
+                kind=typed_by_text[key], marker=marker,
+            ))
+        elif marker:
+            rows.append(CorrectionCoverage(
+                sentence=sentence, status="candidate", marker=marker,
+            ))
+        else:
+            rows.append(CorrectionCoverage(sentence=sentence, status="unmarked"))
+    for correction in typed:
+        key = _norm(correction.text)
+        if key not in matched:
+            matched.add(key)
+            rows.append(CorrectionCoverage(
+                sentence=correction.text.strip(), status="unmatched",
+                kind=correction.kind,
+            ))
+    return rows
+
+
+def render_correction_coverage(
+    text: str, typed: Iterable[Correction] = ()
+) -> str:
+    """Render the D3 typing-coverage section for the final report.
+
+    One line per sentence: its typing status, the kind when typed, and
+    the marker when one fired. Untyped candidates and unmarked
+    sentences are published, not hidden — typing-coverage is auditable.
+    Typed corrections matching no sentence get their own section.
+    """
+    lines = ["## Correction typing coverage (discipline 3)"]
+    unmatched: list[CorrectionCoverage] = []
+    for row in correction_coverage(text, typed):
+        if row.status == "unmatched":
+            unmatched.append(row)
+            continue
+        marker = f" (marker: {row.marker!r})" if row.marker else ""
+        if row.status == "typed":
+            lines.append(f"- [typed: {row.kind}]{marker} {row.sentence}")
+        elif row.status == "candidate":
+            lines.append(f"- [untyped candidate]{marker} {row.sentence}")
+        else:
+            lines.append(f"- [unmarked] {row.sentence}")
+    if unmatched:
+        lines.append("")
+        lines.append("## Typed corrections not found in the text")
+        for row in unmatched:
+            lines.append(f"- [unmatched: {row.kind}] {row.sentence}")
+    return "\n".join(lines)
 
 
 # --- Discipline 4: supplied-motive detection -----------------------------------
@@ -408,6 +530,7 @@ class ScanReport:
     correction_candidates: list[CorrectionCandidate] = field(default_factory=list)
     motive_flags: list[MotiveFlag] = field(default_factory=list)
     softening_flags: list[SofteningFlag] = field(default_factory=list)
+    correction_coverage: list[CorrectionCoverage] = field(default_factory=list)
 
     def clean(self) -> bool:
         """True when no check fired. Not a clean bill of health — see the
@@ -417,17 +540,26 @@ class ScanReport:
                     or self.softening_flags)
 
 
-def scan_text(text: str, *, restatement: str = "") -> ScanReport:
+def scan_text(text: str, *, restatement: str = "",
+              typed: Iterable[Correction] = ()) -> ScanReport:
     """Run every mechanical check over `text`.
 
     Pass the auditor's restatement as `restatement` to enable the D5
-    softening comparison. Everything that fires is a REVIEW item for
-    the operator — the scan finds, the operator decides.
+    softening comparison. Pass the operator's typed Corrections as
+    `typed` to enable the D3 typing-coverage report (PARAM-POSTMO-002):
+    typed sentences drop off the candidate list, and the report carries
+    every sentence with its typing status. Everything that fires is a
+    REVIEW item for the operator — the scan finds, the operator decides.
     """
+    typed = list(typed)  # generators are one-shot; materialize once
+    typed_keys = {_norm(c.text) for c in typed}
+    candidates = [c for c in find_correction_candidates(text)
+                  if _norm(c.sentence) not in typed_keys]
     return ScanReport(
         subordinators=find_subordinators(text),
         verdict_words=find_verdict_words(text),
-        correction_candidates=find_correction_candidates(text),
+        correction_candidates=candidates,
         motive_flags=detect_supplied_motive(text),
         softening_flags=detect_softening(text, restatement) if restatement else [],
+        correction_coverage=correction_coverage(text, typed),
     )
