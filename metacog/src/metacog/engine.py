@@ -70,22 +70,83 @@ def build_user_message(inp: ReasoningInput) -> str:
     return "\n\n".join(parts)
 
 
+def _top_level_object_windows(
+    text: str, honor_strings: bool = True
+) -> list[tuple[int, int]]:
+    """(start, end) windows of top-level balanced '{...}' objects in *text*.
+
+    When *honor_strings* is true, string literals (with backslash escapes)
+    are honored, so braces inside JSON strings don't affect nesting. Only
+    objects whose braces balance at the top level are returned; nested
+    objects are not candidates.
+    """
+    windows: list[tuple[int, int]] = []
+    depth = 0
+    start: int | None = None
+    in_string = False
+    escaped = False
+    for i, ch in enumerate(text):
+        if honor_strings and in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif honor_strings and ch == '"':
+            in_string = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    windows.append((start, i + 1))
+                    start = None
+    return windows
+
+
 def parse_model_json(raw: str) -> dict:
-    """Extract the JSON object from model output; fences tolerated."""
+    """Extract the JSON object from model output; fences tolerated.
+
+    Takes the LAST balanced top-level JSON object in the text, so
+    explanatory prose containing braces — before OR after the record —
+    no longer chokes the parser. With multiple fenced blocks, the last block
+    is tried first; the whole text is the final fallback, so a record sitting
+    outside the fences is still found. A second scan that ignores string
+    literals recovers from a stray unmatched quote in the prose. Strictness
+    is preserved: the window must parse as a JSON object, otherwise an
+    EngineError is raised.
+    """
     text = raw.strip()
     fenced = text.split("```")
-    body = fenced[1] if len(fenced) >= 3 else text
-    start = body.find("{")
-    end = body.rfind("}")
-    if start < 0 or end <= start:
+    segments = (
+        [seg for i, seg in enumerate(fenced) if i % 2 == 1 and seg.strip()]
+        if len(fenced) >= 3
+        else []
+    )
+    last_exc: json.JSONDecodeError | None = None
+    for honor_strings in (True, False):
+        for body in list(reversed(segments)) + [text]:
+            windows = _top_level_object_windows(body, honor_strings)
+            for start, end in reversed(windows):
+                try:
+                    parsed = json.loads(body[start:end])
+                except json.JSONDecodeError as exc:
+                    last_exc = exc
+                    continue
+                if isinstance(parsed, dict):
+                    return parsed
+    if last_exc is not None:
         raise EngineError(
-            "The engine did not return a collision record. "
-            "Try tighter reasoning or a larger model."
-        )
-    try:
-        return json.loads(body[start: end + 1])
-    except json.JSONDecodeError as exc:
-        raise EngineError(f"The engine returned unreadable JSON: {exc}") from exc
+            f"The engine returned unreadable JSON: {last_exc}"
+        ) from last_exc
+    raise EngineError(
+        "The engine did not return a collision record. "
+        "Try tighter reasoning or a larger model."
+    )
 
 
 def normalize(inp: ReasoningInput, model: dict) -> dict:

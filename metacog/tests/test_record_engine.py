@@ -9,8 +9,8 @@ import unittest
 os.environ["FRONTFACE_LEDGER_DIR"] = tempfile.mkdtemp(prefix="metacog-test-")
 
 from metacog.engine import (
-    ReasoningInput, build_user_message, normalize, parse_model_json,
-    run, to_collision_record,
+    EngineError, ReasoningInput, build_user_message, normalize,
+    parse_model_json, run, to_collision_record,
 )
 from metacog.backends import StubBackend
 from metacog.protocol import (
@@ -207,6 +207,59 @@ class EngineTests(unittest.TestCase):
     def test_parse_model_json_tolerates_fences(self):
         raw = "```json\n" + json.dumps(_valid_model()) + "\n```"
         self.assertEqual(parse_model_json(raw)["confidence_after"], 55)
+
+    # PARAM-METACOG-016: last-balanced-JSON-object parsing.
+    def test_parse_model_json_prose_braces_before(self):
+        # The old first-'{'–to–last-'}' window choked on this.
+        raw = (
+            "Here's my take {and a side note about {nested} asides}: "
+            + json.dumps(_valid_model())
+        )
+        self.assertEqual(parse_model_json(raw)["confidence_after"], 55)
+
+    def test_parse_model_json_prose_braces_after(self):
+        raw = (
+            json.dumps(_valid_model())
+            + " (extra color: the {winners} circle kept saying {no})"
+        )
+        self.assertEqual(parse_model_json(raw)["confidence_after"], 55)
+
+    def test_parse_model_json_braces_inside_strings(self):
+        model = _valid_model()
+        model["surprise"] = 'The {trick} is in the "quoted {bits}" — don\'t split.'
+        raw = json.dumps(model)
+        self.assertEqual(parse_model_json(raw)["surprise"], model["surprise"])
+
+    def test_parse_model_json_multiple_fenced_blocks(self):
+        raw = (
+            "Some preamble:\n```text\n{not json at all}\n```\n"
+            "Record:\n```json\n" + json.dumps(_valid_model()) + "\n```"
+        )
+        self.assertEqual(parse_model_json(raw)["confidence_after"], 55)
+
+    def test_parse_model_json_record_after_final_fence(self):
+        # Panel finding: a record in unfenced prose after a fence was ignored.
+        raw = (
+            "```text\n{thinking: draft notes}\n```\n"
+            "Final record:\n" + json.dumps(_valid_model())
+        )
+        self.assertEqual(parse_model_json(raw)["confidence_after"], 55)
+
+    def test_parse_model_json_stray_quote_in_prose(self):
+        # Panel finding: an unmatched quote in prose blinded the scanner.
+        raw = (
+            'The model said "confidence looks low, so here goes: '
+            + json.dumps(_valid_model())
+        )
+        self.assertEqual(parse_model_json(raw)["confidence_after"], 55)
+
+    def test_parse_model_json_rejects_no_object(self):
+        with self.assertRaises(EngineError):
+            parse_model_json("no braces anywhere in this output")
+
+    def test_parse_model_json_rejects_unbalanced(self):
+        with self.assertRaises(EngineError):
+            parse_model_json('{"triggers": ["stakes"], "oops": ')
 
     def test_build_user_message_contents(self):
         msg = build_user_message(self._input())
