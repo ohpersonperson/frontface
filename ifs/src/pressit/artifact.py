@@ -10,10 +10,25 @@ Persistence boundary: the engine's responsibility ends when the complete
 artifact has been emitted. The *caller* saves it to disk and supplies it to
 future interrogations. The engine never writes files and never claims
 external persistence occurred.
+
+Optional store convention (PARAM-PRESSIT-002): when the caller passes a
+``store_dir`` to ``save_artifact()``, pressit persists the rendered
+artifact markdown plus a meta JSON under the canonical layout::
+
+    <store_dir>/<date>/<slug>/artifact.md
+    <store_dir>/<date>/<slug>/meta.json
+
+No classes, no interfaces — just the convention. Every run lands in the
+same shape, so any tool can read it. When ``store_dir`` is omitted the
+behavior is unchanged: the artifact is returned and the caller saves it;
+the default path never writes files.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import re
 from dataclasses import dataclass, field
 
@@ -246,3 +261,51 @@ def load_prior(markdown: str) -> dict:
     if m:
         session = int(m.group(1))
     return {"interrogation": session, "keys": keys}
+
+
+def artifact_meta(a: StateArtifact, digest: str) -> dict:
+    """The meta dict written as meta.json alongside a stored artifact.
+
+    Carries the locating fields (date/slug/session) plus a SHA-256 digest
+    of artifact.md so a stored artifact can be bound to the digest-only
+    ledger row for the same run.
+    """
+    return {
+        "field": a.field,
+        "slug": a.slug,
+        "date": a.date,
+        "session": a.session,
+        "interrogation": a.interrogation,
+        "depth": a.depth,
+        "lifecycle": a.lifecycle,
+        "protocol": f"{PROTOCOL_NAME}/{PROTOCOL_VERSION}",
+        "filename": a.filename,
+        "sha256": digest,
+    }
+
+
+def save_artifact(a: StateArtifact, store_dir: str | None = None) -> str:
+    """Render an artifact, optionally persisting it under the store convention.
+
+    Layout (PARAM-PRESSIT-002): ``<store_dir>/<date>/<slug>/artifact.md``
+    with ``meta.json`` alongside — the same shape every run, readable by
+    any tool. The slug comes from the artifact's canonical ``slug``
+    property (``slugify_field``); the date is the artifact's own date.
+
+    When ``store_dir`` is None the artifact is returned as Markdown and
+    NOTHING is written — identical to ``render(a)``; the caller saves it.
+    When ``store_dir`` is given the files are written and the path of the
+    stored ``artifact.md`` is returned.
+    """
+    markdown = render(a)
+    if store_dir is None:
+        return markdown
+    digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+    dest = os.path.join(store_dir, a.date, a.slug)
+    os.makedirs(dest, exist_ok=True)
+    with open(os.path.join(dest, "artifact.md"), "w", encoding="utf-8") as f:
+        f.write(markdown)
+    with open(os.path.join(dest, "meta.json"), "w", encoding="utf-8") as f:
+        json.dump(artifact_meta(a, digest), f, indent=1)
+        f.write("\n")
+    return os.path.join(dest, "artifact.md")

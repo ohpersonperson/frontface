@@ -9,6 +9,7 @@ from . import artifact, backends, engine, evidence, overlay, protocol
 from .artifact import (
     StateArtifact, Take, Collision, Synthesis, PriorKeyEvaluation,
     slugify_field, render, render_frontmatter, check_sections, load_prior,
+    save_artifact, artifact_meta,
 )
 from .backends import StubBackend, OpenRouterBackend, OllamaBackend
 from .engine import LLMBackend, RunResult, build_user_message, parse_model_json, normalize, run
@@ -29,6 +30,7 @@ __all__ = [
     "artifact", "backends", "engine", "evidence", "overlay", "protocol",
     "StateArtifact", "Take", "Collision", "Synthesis", "PriorKeyEvaluation",
     "slugify_field", "render", "render_frontmatter", "check_sections", "load_prior",
+    "save_artifact", "artifact_meta",
     "StubBackend", "OpenRouterBackend", "OllamaBackend",
     "LLMBackend", "RunResult", "build_user_message", "parse_model_json",
     "normalize", "run",

@@ -88,6 +88,7 @@ The optional **evasion-probe overlay** (off by default) handles interpersonal fi
 - **Input:** a field description (prose), optional tagged evidence, optional prior artifact, optional overlay.
 - **Output:** a normalized artifact dict, or a rendered `interrogation-state-<slug>.md` — complete, self-contained, no placeholders, no TODOs.
 - **The engine never writes files and never claims external persistence.** Your code saves the artifact; the engine's job ends when it's emitted. That's the persistence boundary, and it's deliberate.
+- **Optional store convention:** if you want pressit to persist for you, pass a `store_dir` to `artifact.save_artifact(a, store_dir)` — the rendered Markdown lands at `<store_dir>/<date>/<slug>/artifact.md` with a `meta.json` alongside, the same shape every run. The slug is the artifact's canonical `slug` (from `slugify_field`, the same slug as the `interrogation-state-<slug>.md` filename) — identical to the demo's naive `lower().replace(" ", "-")` on plain fields, more correct on punctuation. No `store_dir`, no writes: `save_artifact(a)` is just `render(a)`. No classes, no interfaces — just the convention.
 
 ## Worked examples
 
