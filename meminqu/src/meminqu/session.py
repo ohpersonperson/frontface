@@ -80,12 +80,22 @@ class InterviewSession:
         *,
         capture_domain: str | None = None,
         capture_mode: CaptureMode | str | None = None,
+        allow_off_cycle: bool = False,
     ) -> CaptureResult:
         """Format the answers and capture them via memdate.
 
         Captures under the announced domain unless ``capture_domain``
         is given — the explicit reassignment the skill requires before
         material may land in a different domain's raw.md.
+
+        The announced domain must be part of this session's cycle —
+        the same bar as start_domain and skip_domain: a config-known
+        domain outside the cycle raises SessionError, so the session
+        can never certify a capture for a domain it never announced.
+        Pass ``allow_off_cycle=True`` when the operator genuinely
+        needs off-cycle capture. The flag bypasses only the cycle
+        check — unknown domains still raise ConfigError from
+        require_domain before it is ever consulted.
 
         ``capture_mode`` is mandatory: VERBATIM / SUMMARY / PARAPHRASE,
         describing how the operator captured the answers. Omission is
@@ -101,6 +111,8 @@ class InterviewSession:
         pass force through the lower-level capture() yourself.
         """
         name = self.config.require_domain(domain)
+        if name not in self.domains and not allow_off_cycle:
+            raise SessionError(f"Domain {domain!r} is not in this cycle.")
         target = (
             self.config.require_domain(capture_domain)
             if capture_domain is not None

@@ -201,5 +201,95 @@ class TestCaptureModeRequired(SessionTestCase):
             )
 
 
+class TestOffCycleCapture(SessionTestCase):
+    """PARAM-MEMINQU-013: submit_answers asserts cycle membership."""
+
+    def test_submit_outside_cycle_rejected(self):
+        # "personal" is config-known but not in this cycle.
+        session = InterviewSession(self.config, domains=("work",))
+        with self.assertRaises(SessionError):
+            session.submit_answers(
+                "personal", responses_for(["direct"]), capture_mode="VERBATIM"
+            )
+        # Nothing was written: no perjured certification.
+        self.assertIsNone(read_raw(self.config, "personal"))
+        self.assertNotIn("personal", session.completion_report()["domains_captured"])
+
+    def test_unknown_domain_still_config_error(self):
+        # allow_off_cycle bypasses the cycle check, not config knowledge.
+        session = InterviewSession(self.config, domains=("work",))
+        with self.assertRaises(ConfigError):
+            session.submit_answers(
+                "fhk",
+                responses_for(["direct"]),
+                capture_mode="VERBATIM",
+                allow_off_cycle=True,
+            )
+
+    def test_off_cycle_capture_with_explicit_override(self):
+        # The operator genuinely needs off-cycle capture: explicit flag,
+        # bytes land under the announced domain's raw.md.
+        session = InterviewSession(self.config, domains=("work",))
+        result = session.submit_answers(
+            "personal",
+            responses_for(["direct"]),
+            capture_mode="VERBATIM",
+            allow_off_cycle=True,
+        )
+        self.assertTrue(result.path.endswith("personal/raw.md"))
+        raw = read_raw(self.config, "personal")
+        self.assertIn(f"{ENTRY_MARKER} — personal", raw)
+        # The report certifies the off-cycle capture under the announced
+        # domain — the exact perjury this parameter closes. Untouched is
+        # computed from the cycle, so "personal" is neither untouched
+        # nor skipped.
+        report = session.completion_report()
+        self.assertIn("personal", report["domains_captured"])
+        self.assertEqual(report["paths"]["personal"], "personal/raw.md")
+        self.assertNotIn("personal", report["domains_untouched"])
+        self.assertNotIn("personal", report["domains_skipped"])
+
+    def test_off_cycle_override_preserves_reassignment(self):
+        # allow_off_cycle governs the announced domain only; the explicit
+        # capture_domain reassignment still routes the bytes (config-known
+        # bar, unchanged) — the two validations stay distinct.
+        session = InterviewSession(self.config, domains=("work",))
+        result = session.submit_answers(
+            "personal",
+            responses_for(["direct"]),
+            capture_domain="projects",
+            capture_mode="VERBATIM",
+            allow_off_cycle=True,
+        )
+        self.assertTrue(result.path.endswith("projects/raw.md"))
+        self.assertIsNone(read_raw(self.config, "personal"))
+        raw = read_raw(self.config, "projects")
+        self.assertIn(f"{ENTRY_MARKER} — personal", raw)
+
+    def test_reassignment_does_not_bypass_cycle_bar(self):
+        # capture_domain does not smuggle an off-cycle announced domain
+        # past the check — the flag is the only way through.
+        session = InterviewSession(self.config, domains=("work",))
+        with self.assertRaises(SessionError):
+            session.submit_answers(
+                "personal",
+                responses_for(["direct"]),
+                capture_domain="projects",
+                capture_mode="VERBATIM",
+            )
+
+    def test_cycle_bar_matches_sibling_methods(self):
+        # Same SessionError bar as start_domain and skip_domain.
+        session = InterviewSession(self.config, domains=("work",))
+        with self.assertRaises(SessionError):
+            session.start_domain("personal")
+        with self.assertRaises(SessionError):
+            session.skip_domain("personal")
+        with self.assertRaises(SessionError):
+            session.submit_answers(
+                "personal", responses_for(["direct"]), capture_mode="VERBATIM"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
