@@ -18,12 +18,15 @@ from .evidence import (
     tag_list,
 )
 from .ground import (
+    VACUOUS_WHENS,
     Correction,
     GroundError,
     GroundMap,
     HeldTension,
     PersonState,
     find_subordinators,
+    is_vacuous_when,
+    when_sort_key,
 )
 from .hypotheses import (
     H_BOTH,
@@ -53,7 +56,7 @@ __all__ = [
     "TAXONOMY", "EvidenceError", "EvidenceItem", "check_matches_engine",
     "forge_mapping_table", "normalize_tag", "tag_list",
     "Correction", "GroundError", "GroundMap", "HeldTension", "PersonState",
-    "find_subordinators",
+    "find_subordinators", "VACUOUS_WHENS", "is_vacuous_when", "when_sort_key",
     "H_BOTH", "H_GENUINE", "H_OBFUSCATION", "INSUFFICIENT_EVIDENCE",
     "SUPPORT_STATUSES", "VERDICTS", "CategoryPresumptionError",
     "DiscriminatingEvidence", "HypothesisError", "HypothesisRecord", "Mechanism",
