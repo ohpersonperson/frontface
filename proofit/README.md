@@ -2,7 +2,9 @@
 
 A runbook is a step-by-step procedure written so tightly that two different
 people following it do the same thing and get the same result. proofit checks
-a runbook draft against ten rules of workflow discipline — and **rejects the
+a runbook draft against fourteen rules of workflow discipline — ten structural
+rules plus the 1337 module's four (cross-role duplication, header date,
+suspicious character count, missing-file verification) — and **rejects the
 draft if any rule is violated**. No warnings, no advisories. Fail-closed:
 exit 1 until it's fixed, exit 0 when it's locked down.
 
@@ -119,7 +121,8 @@ fixed draft passes).
 (18 violations, rejected) and a fixed draft (passes). The fixture files
 `examples/broken-runbook.md` and `examples/fixed-runbook.md` are the
 actual inputs; the test suite asserts the broken one yields exactly 18
-violations across all ten rules and the fixed one yields zero.
+violations across the ten workflow rules (the 1337 module's four add none
+on these fixtures) and the fixed one yields zero.
 
 ## FAQ
 

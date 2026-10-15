@@ -1,21 +1,25 @@
-"""The ten proofit rules as code.
+"""The fourteen proofit rules as code.
 
 Each check takes a parsed Runbook and returns a list of Violations.
-Under fail-closed semantics every violation is an ERROR: any one of them
-rejects the draft.
+Under fail-closed semantics every ERROR violation rejects the draft;
+WARNING violations are listed but pass unless --strict.
 
 Implementation status per rule:
   full check : R2, R3, R4, R6, R7, R9, R10  (mechanical structure/schema)
-  heuristic  : R1, R8                     (narrow phrase lists — tripwires)
+  heuristic  : R1, R8, R13                 (narrow phrase lists — tripwires)
   convention : R5                         (enforces the Term (definition)
                                            pattern where a glossary exists;
                                            detecting undefined jargon without
                                            a glossary is out of scope)
+  text-level : R11, R12, R13, R14         (the 1337 module — see leet.py;
+                                           header text, character count, role
+                                           sections, file-existence claims)
 """
 from __future__ import annotations
 
 import re
 
+from .leet import ALL_1337_CHECKS
 from .model import Runbook, Violation
 
 
@@ -487,4 +491,5 @@ ALL_CHECKS = [
     check_r8_state_changes,
     check_r9_routing,
     check_r10_validation,
+    *ALL_1337_CHECKS,
 ]

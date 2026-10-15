@@ -43,8 +43,10 @@ class Runbook:
 
 
 # PARAM-PROOFIT-001: rule -> severity. Structural rules are ERROR
-# (fail-closed); heuristic (R1, R8) and convention (R5) are WARNING
+# (fail-closed); heuristic (R1, R8, R13) and convention (R5) are WARNING
 # (listed, never fail the draft unless --strict).
+# The 1337 module (R11, R12, R14) is fail-closed ERROR; R13's cute-length
+# namesake is half joke, half real, so it reports as heuristic WARNING.
 ERROR = "ERROR"
 WARNING = "WARNING"
 SEVERITY_BY_RULE = {
@@ -58,6 +60,10 @@ SEVERITY_BY_RULE = {
     8: WARNING,   # heuristic: state changes
     9: ERROR,     # structural: routing
     10: ERROR,   # structural: validation
+    11: ERROR,    # 1337 module: cross-role duplication
+    12: ERROR,    # 1337 module: header date check
+    13: WARNING,  # 1337 module: suspicious character count (namesake)
+    14: ERROR,    # 1337 module: missing-file verification
 }
 
 

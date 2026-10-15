@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## Unreleased
+
+The 1337 module lands as proofit rules R11–R14 (new `src/proofit/leet.py`,
+wired into the lint run): R11 cross-role duplication detection, R12 header
+date check, R13 suspicious-character-count namesake (the eight-length canon:
+93, 222, 555, 840, 1001, 1111, 1217, 1337), R14 missing-file verification.
+R11/R12/R14 are fail-closed ERROR; R13 is heuristic WARNING per the
+PARAM-PROOFIT-001 severity doctrine. Fixture: the actual 1,337-char poisoned
+brief from 2026-10-09, firing all four rules (`tests/test_1337.py`, 27 new
+tests). The staff brief gate (`staff/langchain/leet.py`) is untouched.
+
 ## 1.0.0 — 2026-09-24
 
 Front-facing conversion of the `proofit` skill (skill-suite) into a
