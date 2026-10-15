@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 1.2.0 — 2026-10-15
 
 The 1337 module lands as proofit rules R11–R14 (new `src/proofit/leet.py`,
 wired into the lint run): R11 cross-role duplication detection, R12 header

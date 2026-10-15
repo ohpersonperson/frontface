@@ -2,6 +2,10 @@
 
 All notable changes. The package converts the `ifs-interrogation` skill v2.0 (Ryan's skill-suite, MIT) into front-facing, production-ready code. This changelog doubles as the decoupling record: every entry names what was changed and why.
 
+## 1.2.0 — 2026-10-15
+
+- PARAM-PRESSIT-002: optional artifact store as a **directory convention** — `save_artifact(a, store_dir)` writes `<store_dir>/<date>/<slug>/artifact.md` plus a digest-bound `meta.json`; `store_dir=None` writes nothing. No classes, no interfaces.
+
 ## 1.0.0 — 2026-09-24
 
 ### What was built

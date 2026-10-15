@@ -4,6 +4,11 @@ All notable changes. The package converts the `metacog` skill v2.0 (Ryan's
 skill-suite, MIT) into front-facing, production-ready code. This changelog
 doubles as the decoupling record: every entry names what was changed and why.
 
+## 1.2.0 — 2026-10-15
+
+- PARAM-METACOG-016: `parse_model_json` now parses the last balanced JSON object (handles trailing prose from chatty models).
+- PARAM-METACOG-017: operator-trigger reconciliation in `normalize`.
+
 ## 1.0.0 — 2026-09-24
 
 ### What was built

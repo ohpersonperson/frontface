@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frontface-metacog"
-version = "1.1.0"
+version = "1.2.0"
 description = "Five-step reasoning pressure test: trigger thresholds, steelman countermodel, load-bearing assumptions, collision, confidence revision"
 readme = "README.md"
 license = { text = "MIT" }

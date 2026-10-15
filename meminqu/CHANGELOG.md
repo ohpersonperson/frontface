@@ -1,5 +1,9 @@
 # Changelog — meminqu
 
+## 1.2.0 — 2026-10-15
+
+- PARAM-MEMINQU-013: `submit_answers` asserts cycle membership (same bar as start_domain/skip_domain), with an explicit `allow_off_cycle` override flag.
+
 ## 1.0.0 — 2026-09-24
 
 Front-facing conversion of the `meminqu-memory-interrogation` skill

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "postmo"
-version = "1.1.0"
+version = "1.2.0"
 description = "Hold a messy multi-person situation without resolving it: five audit disciplines as linter checks plus a full structured audit record."
 readme = "README.md"
 license = { text = "MIT" }

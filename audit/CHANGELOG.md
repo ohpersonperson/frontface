@@ -1,5 +1,13 @@
 # Changelog — postmo
 
+## 1.2.0 — 2026-10-15
+
+- PARAM-POSTMO-002: D3 typing-coverage surfaced in the final report (CorrectionCoverage rows: typed/candidate/unmarked/unmatched).
+- PARAM-POSTMO-013: `parse()` rejects non-schema lines (deviation log).
+- PARAM-POSTMO-014: a bare quote no longer counts as D4 attribution.
+- PARAM-POSTMO-015: D5 unchecked state explicit — `clean()` requires D5 ran.
+- PARAM-POSTMO-016: softening scan returns coverage-carrying `SofteningResult`.
+
 ## 1.0.0 — 2026-09-24 (front-facing conversion)
 
 Converted from the `forensic-situational-audit` skill (v2.0) in Ryan's

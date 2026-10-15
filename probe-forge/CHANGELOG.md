@@ -4,6 +4,11 @@ Front-facing conversion of two skill-suite skills, converted as one
 unit: `responsibility-obfuscation-probe` v2.0 and `field-forge` v2.0.1
 (both MIT). Converted 2026-09-24.
 
+## 1.2.0 — 2026-10-15
+
+- PARAM-FAIRIT-003: vacuous `PersonState.when` values (e.g. "sometime") are rejected; corrections get referential checks against known persons/states so the ledger can't carry corrections pointing at nothing.
+- PARAM-FAIRIT-016: new person-keyed view accessor `GroundMap.person_states_for(person)` (case-insensitive, order-preserving; unknown person yields []).
+
 ## What the conversion changed
 
 - **One hypothesis library, not two.** The probe's hypothesis protocol
