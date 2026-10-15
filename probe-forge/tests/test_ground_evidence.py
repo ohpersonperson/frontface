@@ -310,5 +310,40 @@ class TestFairit003WhenAndCorrections(unittest.TestCase):
             )
 
 
+class TestPersonViewAccessor(unittest.TestCase):
+    """PARAM-FAIRIT-016: person-keyed view on GroundMap."""
+
+    def _map(self):
+        return GroundMap(person_states=[
+            PersonState("2026-09-20", "Mara", "cooperative"),
+            PersonState("2026-09-20", "Theo", "guarded"),
+            PersonState("2026-09-21", "Mara", "withdrawn"),
+        ])
+
+    def test_returns_only_that_persons_states(self):
+        seq = self._map().person_states_for("Mara")
+        self.assertEqual([s.state for s in seq],
+                         ["cooperative", "withdrawn"])
+
+    def test_mapped_order_preserved(self):
+        seq = self._map().person_states_for("Mara")
+        self.assertEqual([s.when for s in seq],
+                         ["2026-09-20", "2026-09-21"])
+
+    def test_name_match_is_case_insensitive(self):
+        seq = self._map().person_states_for("mara")
+        self.assertEqual(len(seq), 2)
+
+    def test_unknown_person_yields_empty_list(self):
+        self.assertEqual(self._map().person_states_for("Nobody"), [])
+
+    def test_render_stays_flat(self):
+        # The audit log itself is unchanged: interleave, no grouping.
+        text = self._map().render()
+        self.assertLess(text.index("Mara"), text.index("Theo"))
+        self.assertLess(text.index("Theo"),
+                        text.index("Mara", text.index("Theo")))
+
+
 if __name__ == "__main__":
     unittest.main()

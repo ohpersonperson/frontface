@@ -306,6 +306,23 @@ class GroundMap:
         """The signal: corrections that changed the account itself."""
         return [c for c in self.corrections if c.kind == "core-claim"]
 
+    def person_states_for(self, person: str) -> list[PersonState]:
+        """The mapped sequence for one person, in mapped order.
+
+        PARAM-FAIRIT-016: the audit log stays flat (render() interleaves
+        everyone), but the reader gets the per-person sequence — the
+        module docstring's promise ("map the states, never flatten a
+        person to one characterization") read back per person. Name
+        matching is case-insensitive, like the correction-reference
+        check. An unknown person yields an empty list (this is a read
+        view, not an audit gate — the gates stay in __post_init__).
+        """
+        key = person.strip().casefold()
+        return [
+            s for s in self.person_states
+            if s.person.strip().casefold() == key
+        ]
+
     def render(self) -> str:
         lines = ["## Audited ground"]
         for t in self.tensions:
