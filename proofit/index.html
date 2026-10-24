@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>proofit — proof page</title>
+<style>
+  body { font-family: monospace; max-width: 720px; margin: 1em auto; padding: 0 1em; }
+  textarea, input[type=text] { width: 100%; box-sizing: border-box; font-family: monospace; }
+  textarea { height: 220px; }
+  pre { white-space: pre-wrap; background: #f4f1ea; padding: 1em; border: 1px solid #ccc; }
+  button { font-family: monospace; font-size: 1em; padding: .4em 1em; margin: .5em .5em .5em 0; }
+  .note { color: #555; font-size: .9em; }
+  #status { font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>proofit — proof it's alive in your browser</h1>
+<p class="note"><a href="/">← pressit</a></p>
+<p class="note">Proof page. Ugly on purpose. proofit 1.2.0 runs fully in your browser via Pyodide — no server, no key, nothing leaves the page. First load downloads the Pyodide runtime (~10MB) once.</p>
+<p id="status">loading pyodide…</p>
+
+<h2>The runbook draft</h2>
+<p class="note">Paste a runbook draft in the template shape, or load a worked example: the clean one passes, the sloppy one fails.</p>
+<textarea id="draft"># Runbook: Restart the router
+
+## Ground Rules & Prerequisites
+
+### Required Baseline
+
+Router is plugged in and powered on.
+
+## Step-by-Step Directives
+
+### Step 1: Get past the setup screen
+
+**Do:** Press Continue.
+**Look for:** the status light.
+
+### Step 2: Power-cycle
+
+**Do:** Unplug the router and plug it back in.
+**Look for:** lights come back on.
+**Verify:** the status page displays "connected".
+**If wrong:** wait two minutes.
+**Fix:** try again.
+
+## Validation & Closure
+
+Done when the status page displays "connected".
+</textarea><br>
+<button id="template" disabled>load blank template</button>
+<button id="clean" disabled>load clean example</button>
+<button id="sloppy" disabled>load sloppy example</button>
+<label><input type="checkbox" id="strict"> strict mode (fail on warnings too)</label><br>
+<button id="lint" disabled>lint it</button>
+<pre id="out">lint output lands here.</pre>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+let pyodide = null;
+const statusEl = document.getElementById('status');
+const set = (t) => statusEl.textContent = t;
+
+const BOOT = `
+import micropip
+await micropip.install("frontface-proofit==1.2.0")
+from proofit import lint_text
+print("proofit ready")
+`;
+
+const DOLINT = `
+from proofit import lint_text
+try:
+    result = lint_text(DRAFT_TEXT, strict=STRICT)
+    lines = []
+    lines.append("FAIL — draft rejected" if not result.passed else "PASS — draft is locked down")
+    lines.append("errors: %d, warnings: %d, waived: %d" % (
+        len(result.errors), len(result.warnings),
+        sum(1 for v in result.violations if v.waived)))
+    lines.append("")
+    lines.append(result.render())
+    RESULT = "\\n".join(lines)
+except Exception as e:
+    RESULT = "linter crashed: " + str(e)
+`;
+
+
+const CLEAN_EXAMPLE = `
+# Runbook: Check the router status page
+
+## Ground Rules & Prerequisites
+
+### Required Baseline
+
+- Hardware: any laptop or phone with a working screen.
+- Software: a web browser app (Chrome, Firefox, or Safari).
+- Accounts: none required — the router status page needs no account.
+- Permissions: standard user permissions are enough; no admin access needed.
+- Files: no files are needed for this workflow.
+- Internet access: a Wi-Fi connection to the home network.
+- Free-tier limits: none — this workflow uses only local network access.
+- Starting state (baseline): the router is plugged in and powered on, and the device is connected to the home Wi-Fi.
+
+## Step-by-Step Directives
+
+### Step 1: Open the status page
+
+**Do:** Type the address 192.168.1.1 into the browser app's address bar.
+**Look for:** the router login page opens in the browser window.
+**Verify:** the page displays the words "Router Status".
+**If wrong:** the page shows a connection error instead.
+**Fix:** confirm the device is on the home Wi-Fi, then type the address again.
+
+### Step 2: Read the connection state
+
+**Do:** Read the value shown next to the bold **Connection** label.
+**Look for:** the status text appears beside the label.
+**Verify:** the text displays either "connected" or "disconnected".
+**If wrong:** the label shows a spinning loader that never resolves.
+**Fix:** wait thirty seconds, then refresh the page once.
+
+## Validation & Closure
+
+Success condition: the **Connection** label displays either "connected" or "disconnected".
+
+Consistency checklist:
+
+- [ ] The status page opened at 192.168.1.1.
+- [ ] The **Connection** label displayed a final state.
+- [ ] No step was skipped and every Verify line passed.
+`;
+
+const SLOPPY_EXAMPLE = `
+# Runbook: Restart the router
+
+## Ground Rules & Prerequisites
+
+### Required Baseline
+
+Router is plugged in and powered on.
+
+## Step-by-Step Directives
+
+### Step 1: Get past the setup screen
+
+**Do:** Press Continue.
+**Look for:** the status light.
+
+### Step 2: Power-cycle
+
+**Do:** Unplug the router and plug it back in.
+**Look for:** lights come back on.
+**Verify:** the status page displays "connected".
+**If wrong:** wait two minutes.
+**Fix:** try again.
+
+## Validation & Closure
+
+Done when the status page displays "connected".
+
+`;
+
+async function boot() {
+  try {
+    set("loading pyodide runtime…");
+    pyodide = await loadPyodide();
+    set("loading micropip…");
+    await pyodide.loadPackage("micropip");
+    set("installing frontface-proofit 1.2.0 from PyPI…");
+    await pyodide.runPythonAsync(BOOT);
+    set("ready. proofit 1.2.0 is running in this page.");
+    document.getElementById('lint').disabled = false;
+    document.getElementById('template').disabled = false;
+    document.getElementById('clean').disabled = false;
+    document.getElementById('sloppy').disabled = false;
+  } catch (e) {
+    set("boot failed: " + e.message);
+  }
+}
+
+document.getElementById('lint').onclick = async () => {
+  const out = document.getElementById('out');
+  out.textContent = "linting…";
+  try {
+    pyodide.globals.set("DRAFT_TEXT", document.getElementById('draft').value);
+    pyodide.globals.set("STRICT", document.getElementById('strict').checked);
+    await pyodide.runPythonAsync(DOLINT);
+    out.textContent = pyodide.globals.get("RESULT");
+  } catch (e) { out.textContent = "error: " + e.message; }
+};
+
+document.getElementById('template').onclick = async () => {
+  const out = document.getElementById('out');
+  try {
+    const resp = await fetch("https://raw.githubusercontent.com/ohpersonperson/frontface/main/proofit/templates/runbook-template.md");
+    if (!resp.ok) { out.textContent = "couldn't fetch the template (HTTP " + resp.status + ")"; return; }
+    document.getElementById('draft').value = await resp.text();
+    out.textContent = "blank template loaded — fill in the [bracketed] placeholders, then lint it.";
+  } catch (e) { out.textContent = "couldn't fetch the template: " + e.message; }
+};
+
+
+document.getElementById('clean').onclick = () => {
+  document.getElementById('draft').value = CLEAN_EXAMPLE;
+  document.getElementById('out').textContent = "clean example loaded — lint it.";
+};
+
+document.getElementById('sloppy').onclick = () => {
+  document.getElementById('draft').value = SLOPPY_EXAMPLE;
+  document.getElementById('out').textContent = "sloppy example loaded — lint it.";
+};
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pressit — proof page</title>
+<style>
+  body { font-family: monospace; max-width: 720px; margin: 1em auto; padding: 0 1em; }
+  textarea, input[type=text], input[type=password], select { width: 100%; box-sizing: border-box; font-family: monospace; }
+  textarea { height: 120px; }
+  pre { white-space: pre-wrap; background: #f4f1ea; padding: 1em; border: 1px solid #ccc; }
+  button { font-family: monospace; font-size: 1em; padding: .4em 1em; margin: .5em .5em .5em 0; }
+  .note { color: #555; font-size: .9em; }
+  #status { font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>pressit — proof it's alive in your browser</h1>
+<p class="note">Also live: <a href="/proofit/">proofit — the runbook linter</a></p>
+<p class="note">Proof page. Ugly on purpose. pressit 1.2.0 runs fully in your browser via Pyodide — no server. First load downloads the Pyodide runtime (~10MB) once.</p>
+<p id="status">loading pyodide…</p>
+
+<h2>1. The field</h2>
+<textarea id="field" placeholder="Paste the claim, decision, or contradiction you want interrogated."></textarea><br>
+<label>mode:
+<select id="mode">
+  <option value="standard">standard — one pass</option>
+  <option value="systemic">systemic — deep nine-stage</option>
+  <option value="stress-test">stress-test — session 2+, tests prior Keys</option>
+  <option value="adjudication">adjudication — judge a claim against a standard</option>
+</select></label><br>
+<label><input type="checkbox" id="overlay"> turn on the evasion-probe overlay (opt-in, stays off unless you check this)</label><br>
+<button id="prescan" disabled>run pre-scan (no key needed)</button>
+<pre id="out1">pre-scan output lands here.</pre>
+
+<h2>2. The interrogation (needs your OpenRouter key)</h2>
+<p class="note">Your key stays in this page's memory. It is sent only to openrouter.ai, with your field text, to run the interrogation — never stored, never logged anywhere.</p>
+<input type="password" id="orkey" placeholder="OpenRouter API key" autocomplete="off"><br><br>
+<input type="text" id="ormodel" placeholder="model id (required — your pick, e.g. a free-tier model)"><br>
+<label id="ackwrap" style="display:none"><input type="checkbox" id="ack"> evasion cues found — acknowledge and run anyway</label><br>
+<button id="gorun" disabled>run the interrogation</button>
+<pre id="out2">the state artifact lands here.</pre>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+let pyodide = null;
+const statusEl = document.getElementById('status');
+const set = (t) => statusEl.textContent = t;
+
+const BOOT = `
+import os
+os.environ["FRONTFACE_NO_LEDGER"] = "1"
+import micropip
+await micropip.install("pressit==1.2.0")
+import json, datetime
+from pressit import FieldInput, EvidenceItem, run
+from pressit import artifact as art, protocol as proto
+from pressit.overlay import scan_evasion_cues, EvasionHalt
+from pressit.evidence import tag_list
+from pressit.engine import build_user_message, LLMBackend
+print("pressit", __import__("pressit").__version__, "ready")
+`;
+
+const PRESCAN = `
+import json
+from pressit import FieldInput
+from pressit.overlay import scan_evasion_cues
+from pressit.evidence import tag_list
+from pressit.engine import build_user_message
+field_text = FIELD_TEXT
+mode = MODE
+overlay = OVERLAY
+cues = scan_evasion_cues(field_text)
+try:
+    fi = FieldInput(field=field_text, mode=mode, overlay=overlay)
+    valid = "ok — field accepted by the protocol contract"
+except Exception as e:
+    valid = "rejected: " + str(e)
+prompt = build_user_message(field_text, overlay=overlay, prior_json=None)
+out = []
+out.append("evasion pre-scan (PARAM-PRESSIT-003):")
+out.append("  cues: " + (json.dumps(cues) if cues else "(none)"))
+out.append("")
+out.append("field contract: " + valid)
+out.append("evidence tiers: " + ", ".join(tag_list()))
+out.append("")
+out.append("prompt that would go to the backend (first 900 chars):")
+out.append(prompt[:900])
+RESULT = "\\n".join(out)
+`;
+
+const DORUN = `
+import json, datetime
+from pressit import FieldInput, run
+from pressit import artifact as art, protocol as proto
+from pressit.overlay import EvasionHalt
+from pressit.engine import LLMBackend
+field_text = FIELD_TEXT
+mode = MODE
+overlay = OVERLAY
+ack = ACK
+raw = RAW_TEXT
+class BrowserBackend(LLMBackend):
+    name = "browser-fetch"
+    def complete(self, system, user):
+        return raw
+fi = FieldInput(field=field_text, mode=mode, overlay=overlay)
+try:
+    result = run(fi, BrowserBackend(), acknowledge_evasion=ack)
+except EvasionHalt as h:
+    RESULT = "EVASION_HALT::" + json.dumps(h.cues)
+else:
+    if not result.ok:
+        RESULT = "INTERROGATION FAILED: " + (result.error or "unknown")
+    else:
+        a = result.artifact
+        keys = [proto.KeyDraft(statement=k["statement"],
+                               classification=k["classification"],
+                               evidence=k["evidence"], confidence=k["confidence"],
+                               vulnerability=k["vulnerability"],
+                               falsifier=k["falsifier"]) for k in a["keys"]]
+        s = a["synthesis"] or {}
+        state = art.StateArtifact(
+            field=a["meta"]["field"], session=a["meta"]["session"],
+            date=datetime.date.today().isoformat(), depth=mode,
+            trigger_context="browser run (pressit proof page)",
+            lifecycle=a["meta"]["status"],
+            prior_interrogation=None, prior_date=None, prior_keys=[],
+            takes=[art.Take(t["id"], t["title"], t["argument"]) for t in a["takes"]],
+            collisions=[art.Collision(c["pair"], c["contradiction"],
+                                      c["premiseFailure"], c["discriminator"])
+                        for c in a["collisions"]],
+            keys=keys, surprise=a["surprise"],
+            synthesis=art.Synthesis(
+                established_ground=s.get("establishedGround", ""),
+                surviving_model=s.get("survivingModel", ""),
+                remaining_uncertainties=s.get("remainingUncertainties", ""),
+                primary_next_target=s.get("primaryNextTarget", "")),
+            interrogation=a["meta"]["session"],
+        )
+        RESULT = art.render(state)
+`;
+
+async function boot() {
+  try {
+    set("loading pyodide runtime…");
+    pyodide = await loadPyodide();
+    set("loading micropip…");
+    await pyodide.loadPackage("micropip");
+    set("installing pressit 1.2.0 from PyPI…");
+    await pyodide.runPythonAsync(BOOT);
+    set("ready. pressit 1.2.0 is running in this page.");
+    document.getElementById('prescan').disabled = false;
+    document.getElementById('gorun').disabled = false;
+  } catch (e) {
+    set("boot failed: " + e.message);
+  }
+}
+
+function pyVars() {
+  pyodide.globals.set("FIELD_TEXT", document.getElementById('field').value);
+  pyodide.globals.set("MODE", document.getElementById('mode').value);
+  pyodide.globals.set("OVERLAY", document.getElementById('overlay').checked);
+}
+
+document.getElementById('prescan').onclick = async () => {
+  const out = document.getElementById('out1');
+  out.textContent = "running…";
+  try {
+    pyVars();
+    await pyodide.runPythonAsync(PRESCAN);
+    out.textContent = pyodide.globals.get("RESULT");
+  } catch (e) { out.textContent = "error: " + e.message; }
+};
+
+document.getElementById('gorun').onclick = async () => {
+  const out = document.getElementById('out2');
+  const key = document.getElementById('orkey').value.trim();
+  const model = document.getElementById('ormodel').value.trim();
+  const field = document.getElementById('field').value;
+  if (!key) { out.textContent = "paste your OpenRouter key first."; return; }
+  if (!model) { out.textContent = "pick a model id first."; return; }
+  if (!field.trim()) { out.textContent = "paste a field first."; return; }
+  out.textContent = "calling openrouter…";
+  try {
+    pyVars();
+    const sysPrompt = await pyodide.runPythonAsync(
+      "from pressit.protocol import SYSTEM_PROMPT\nSYSTEM_PROMPT");
+    const userMsg = await pyodide.runPythonAsync(
+      "from pressit.engine import build_user_message\n" +
+      "build_user_message(FIELD_TEXT, overlay=OVERLAY, prior_json=None)");
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + key,
+        "Content-Type": "application/json",
+        "HTTP-Referer": location.href,
+        "X-Title": "pressit proof page"
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {role: "system", content: sysPrompt},
+          {role: "user", content: userMsg}
+        ]
+      })
+    });
+    if (!resp.ok) {
+      out.textContent = "openrouter said " + resp.status + ": " +
+        (await resp.text()).slice(0, 500);
+      return;
+    }
+    const data = await resp.json();
+    const raw = data.choices[0].message.content;
+    pyodide.globals.set("RAW_TEXT", raw);
+    pyodide.globals.set("ACK", document.getElementById('ack').checked);
+    out.textContent = "interrogating…";
+    await pyodide.runPythonAsync(DORUN);
+    const res = pyodide.globals.get("RESULT");
+    if (res.startsWith("EVASION_HALT::")) {
+      const cues = JSON.parse(res.slice("EVASION_HALT::".length));
+      out.textContent = "pressit halted: evasion cues in the field — " +
+        JSON.stringify(cues) + "\nCheck the acknowledge box and run again to proceed anyway (overlay stays off unless you turned it on).";
+      document.getElementById('ackwrap').style.display = "";
+    } else {
+      document.getElementById('ackwrap').style.display = "none";
+      out.textContent = res;
+    }
+  } catch (e) { out.textContent = "error: " + e.message; }
+};
+
+boot();
+</script>
+</body>
+</html>
