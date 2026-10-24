@@ -184,6 +184,17 @@ document.getElementById('gorun').onclick = async () => {
   out.textContent = "calling openrouter…";
   try {
     pyVars();
+    // Gate fix (2026-10-24): check evasion cues BEFORE fetching the model,
+    // so a dirty field does not burn a model call and then halt in DORUN.
+    const preCues = JSON.parse(await pyodide.runPythonAsync(
+      "import json\nfrom pressit.overlay import scan_evasion_cues\njson.dumps(scan_evasion_cues(FIELD_TEXT))"));
+    if (preCues.length && !document.getElementById('overlay').checked &&
+        !document.getElementById('ack').checked) {
+      out.textContent = "pressit halted before calling openrouter: evasion cues in the field — " +
+        JSON.stringify(preCues) + "\nNo model call was made. Check the acknowledge box and run again to proceed anyway, or turn the evasion-probe overlay on.";
+      document.getElementById('ackwrap').style.display = "";
+      return;
+    }
     const sysPrompt = await pyodide.runPythonAsync(
       "from pressit.protocol import SYSTEM_PROMPT\nSYSTEM_PROMPT");
     const userMsg = await pyodide.runPythonAsync(
@@ -211,6 +222,10 @@ document.getElementById('gorun').onclick = async () => {
       return;
     }
     const data = await resp.json();
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      out.textContent = "openrouter returned no usable choice — try again or pick another model.";
+      return;
+    }
     const raw = data.choices[0].message.content;
     pyodide.globals.set("RAW_TEXT", raw);
     pyodide.globals.set("ACK", document.getElementById('ack').checked);
