@@ -34,7 +34,7 @@ Zero dependencies beyond Python 3.10+ and a model to run the engine on.
 
 ```bash
 cd ifs
-python3 -m unittest discover -s tests     # 41 offline tests — prove the machinery first
+python3 -m unittest discover -s tests     # 64 offline tests — prove the machinery first
 ```
 
 To run a real interrogation, you need a backend — any LLM that can follow the protocol prompt:
@@ -104,7 +104,7 @@ Three complete runs a stranger can follow, in `examples/`:
 
 **Is this related to Internal Family Systems therapy?** No. The acronym collision is coincidental; this is an interrogation engine, not a therapeutic method.
 
-**Does it need an internet connection?** Only for the model call, and only the backend you choose. With Ollama it's fully offline. The 41 unit tests never touch the network.
+**Does it need an internet connection?** Only for the model call, and only the backend you choose. With Ollama it's fully offline. The 64 unit tests never touch the network.
 
 **What does it cost?** The package is free and dependency-free. The model call costs whatever your provider charges — free-tier models work; the engine was evaluated on them.
 
