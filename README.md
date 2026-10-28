@@ -50,19 +50,20 @@ labeled as such when it exists.
 ## Test
 
 ```bash
-for d in ifs metacog flashy memdate meminqu probe-forge audit proofit; do
+for d in ifs metacog flashy memdate probe-forge audit proofit; do
   PYTHONPATH="$d/src" python -m pytest "$d/tests/" -q
 done
 ```
 
 `meminqu` needs `memdate/src` on the path too — it deliberately imports
-memdate's shared core instead of duplicating it:
+memdate's shared core instead of duplicating it, so it runs as its own
+step, not inside the loop above:
 
 ```bash
 PYTHONPATH="meminqu/src:memdate/src" python -m pytest meminqu/tests/ -q
 ```
 
-419 tests, all green, all offline.
+595 tests, all green, all offline (pytest passed count; two packages also report subtests separately).
 
 ## Note
 
