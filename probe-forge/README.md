@@ -125,7 +125,7 @@ guards against silent forks when the sibling package is importable.
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-55 offline tests: verdict rules, category-presumption rejection (the v1
+87 offline tests: verdict rules, category-presumption rejection (the v1
 regression suite), the OBFUSCATION gate, the subordinator scan,
 correction typing, taxonomy reconciliation, brief round-trip and
 stand-down, dialect detection, and a full ground→probe→brief cycle.
