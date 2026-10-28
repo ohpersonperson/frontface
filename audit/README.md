@@ -84,7 +84,7 @@ Zero dependencies beyond Python 3.10+. Fully offline.
 
 ```bash
 cd audit
-PYTHONPATH=src python3 -m unittest discover -s tests   # 55 offline tests
+PYTHONPATH=src python3 -m unittest discover -s tests   # 86 offline tests
 ```
 
 Lint an audit draft:
