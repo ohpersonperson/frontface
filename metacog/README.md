@@ -77,7 +77,7 @@ Zero dependencies beyond Python 3.10+ and a model to run the engine on.
 
 ```bash
 cd metacog
-python3 -m unittest discover -s tests     # 39 offline tests — prove the machinery first
+python3 -m unittest discover -s tests     # 55 offline tests — prove the machinery first
 ```
 
 To run a real pressure test, you need a backend — any LLM that can follow
@@ -152,7 +152,7 @@ They attach cleanly (the audit runs at the Collide→Refine boundary), but
 each works standalone.
 
 **Does it need an internet connection?** Only for the model call, and
-only the backend you choose. With Ollama it's fully offline. The 30 unit
+only the backend you choose. With Ollama it's fully offline. The 55 unit
 tests never touch the network.
 
 **What does it cost?** The package is free and dependency-free. The model
