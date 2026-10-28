@@ -146,7 +146,7 @@ shape, not real findings.*
 Execution discipline, not reasoning quality.
 
 **Does it need an internet connection?** No. No model calls at all — the
-41 unit tests and the demo run fully offline.
+52 unit tests and the demo run fully offline.
 
 **What does it cost?** Nothing. Free, dependency-free, offline.
 
