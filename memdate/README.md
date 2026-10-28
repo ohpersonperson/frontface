@@ -72,7 +72,7 @@ Zero dependencies beyond Python 3.10+.
 
 ```bash
 cd memdate
-PYTHONPATH=src python3 -m unittest discover -s tests   # 72 offline tests
+PYTHONPATH=src python3 -m unittest discover -s tests   # 79 offline tests
 ```
 
 ```bash
