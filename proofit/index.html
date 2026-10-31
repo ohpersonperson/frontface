@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>proofit — proof page</title>
+<title>proofit — lint a runbook in your browser</title>
 <style>
   body { font-family: monospace; max-width: 720px; margin: 1em auto; padding: 0 1em; }
   textarea, input[type=text] { width: 100%; box-sizing: border-box; font-family: monospace; }
@@ -15,9 +15,9 @@
 </style>
 </head>
 <body>
-<h1>proofit — proof it's alive in your browser</h1>
-<p class="note"><a href="/">← pressit</a></p>
-<p class="note">Proof page. Ugly on purpose. proofit 1.2.0 runs fully in your browser via Pyodide — no server, no key, nothing leaves the page. First load downloads the Pyodide runtime (~10MB) once.</p>
+<h1>proofit — lint a runbook</h1>
+<p>proofit checks a runbook draft against its template: missing prerequisites, steps without a verify, no recovery path, no success condition. It runs fully in your browser via Pyodide — no server, no key, nothing leaves the page. First load downloads the Pyodide runtime (~10MB) once.</p>
+<p class="note"><a href="../">← pressit</a></p>
 <p id="status">loading pyodide…</p>
 
 <h2>The runbook draft</h2>
@@ -55,6 +55,38 @@ Done when the status page displays "connected".
 <label><input type="checkbox" id="strict"> strict mode (fail on warnings too)</label><br>
 <button id="lint" disabled>lint it</button>
 <pre id="out">lint output lands here.</pre>
+
+<h2>See a finished result first — no download needed</h2>
+<p class="note">Canned result: the draft already loaded above, linted with proofit 1.2.0. Press "lint it" once the page is ready for the live version.</p>
+<pre>FAIL — draft rejected
+errors: 12, warnings: 1, waived: 0
+
+RULE 1 [Step 1 (do)] WARNING — unlabeled directive assumes the reader knows where/what: "Press Continue."
+  fix: name the exact visible label, e.g. the blue **Continue** button in the bottom-right corner
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: hardware
+  fix: state the hardware requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: software
+  fix: state the software requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: accounts
+  fix: state the accounts requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: permissions
+  fix: state the permissions requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: files
+  fix: state the files requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: internet access
+  fix: state the internet access requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 2 [Ground Rules & Prerequisites] ERROR — required prerequisite field missing: free-tier limits
+  fix: state the free-tier limits requirement explicitly (never reveal new prerequisites mid-guide)
+RULE 6 [Step 1] ERROR — step ends without a Verify: block
+  fix: describe exactly what should be observed, e.g. Verify: the file now exists at ~/backup/
+RULE 7 [Step 1] ERROR — step has no If wrong: block — the most likely mistake is unstated
+  fix: add If wrong: describing the most likely mistake for this step
+RULE 7 [Step 1] ERROR — step has no Fix: block — no recovery path
+  fix: add Fix: with the shortest recovery path (resume the guide, don't restart, when possible)
+RULE 10 [Validation & Closure] ERROR — no Success Condition — the exact final state is undescribed
+  fix: describe the exact final state so success is certain, not hoped for
+RULE 10 [Validation & Closure] ERROR — no consistency checklist — nothing to check the workflow against
+  fix: add consistency checkpoints: inputs met spec, prompts correct, outputs matched format</pre>
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>

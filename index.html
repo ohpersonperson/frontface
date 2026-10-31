@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pressit — proof page</title>
+<title>pressit — interrogate a claim in your browser</title>
 <style>
   body { font-family: monospace; max-width: 720px; margin: 1em auto; padding: 0 1em; }
   textarea, input[type=text], input[type=password], select { width: 100%; box-sizing: border-box; font-family: monospace; }
@@ -15,13 +15,29 @@
 </style>
 </head>
 <body>
-<h1>pressit — proof it's alive in your browser</h1>
-<p class="note">Also live: <a href="/proofit/">proofit — the runbook linter</a></p>
-<p class="note">Proof page. Ugly on purpose. pressit 1.2.0 runs fully in your browser via Pyodide — no server. First load downloads the Pyodide runtime (~10MB) once.</p>
+<h1>pressit — interrogate a claim</h1>
+<p>pressit takes a claim, decision, or contradiction and interrogates it, handing back the keys, collisions, and surviving model. It runs fully in your browser via Pyodide — no server. First load downloads the Pyodide runtime (~10MB) once.</p>
+<p class="note">No key needed to start: try <a href="proofit/">proofit, the runbook linter</a> first — it needs no key and nothing leaves the page.</p>
 <p id="status">loading pyodide…</p>
 
+<h2>See a finished example first — no key, no download</h2>
+<p class="note">Canned result: the sample claim below, pre-scanned with pressit (no key, no model call). Press "run pre-scan" once the page is ready for the live version.</p>
+<pre>evasion pre-scan (PARAM-PRESSIT-003):
+  cues: (none)
+
+field contract: ok — field accepted by the protocol contract
+evidence tiers: FACT, OBSERVATION, CLAIM, INFERENCE, ASSUMPTION, HYPOTHESIS, REQUIREMENT, CONSTRAINT, DEPENDENCY, UNKNOWN, OBFUSCATION
+
+prompt that would go to the backend (first 900 chars):
+OVERLAY: OFF
+
+PRIOR ARTIFACT: none
+
+FIELD:
+Restarting the router always fixes the connection.</pre>
+
 <h2>1. The field</h2>
-<textarea id="field" placeholder="Paste the claim, decision, or contradiction you want interrogated."></textarea><br>
+<textarea id="field" placeholder="Paste the claim, decision, or contradiction you want interrogated.">Restarting the router always fixes the connection.</textarea><br>
 <label>mode:
 <select id="mode">
   <option value="standard">standard — one pass</option>
