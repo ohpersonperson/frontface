@@ -77,11 +77,13 @@ Zero dependencies beyond Python 3.10+ and a model to run the engine on.
 
 ```bash
 cd metacog
-python3 -m unittest discover -s tests     # 55 offline tests — prove the machinery first
+PYTHONPATH=src python3 -m unittest discover -s tests     # 55 offline tests — prove the machinery first
 ```
 
 To run a real pressure test, you need a backend — any LLM that can follow
-the protocol prompt:
+the protocol prompt.
+
+No backend means a stub. A conclusion under 40 words fails the steelman check on purpose — use at least 40 words. A RUN FAILED line from that check is the check working, not a crash.
 
 ```bash
 # Fully offline: local Ollama

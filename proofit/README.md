@@ -75,7 +75,13 @@ cd proofit
 PYTHONPATH=src python3 -m unittest discover -s tests   # 90 offline tests
 ```
 
-Lint a draft:
+Lint a known-good draft first (expect PASS: no violations):
+
+```bash
+PYTHONPATH=src python3 -m proofit lint examples/fixed-runbook.md
+```
+
+The blank template REJECTS until its placeholders are real observable checks. Then lint a draft:
 
 ```bash
 PYTHONPATH=src python3 -m proofit lint my-runbook.md

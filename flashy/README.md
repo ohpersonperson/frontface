@@ -90,7 +90,7 @@ package is pure discipline machinery.
 
 ```bash
 cd flashy
-python3 -m unittest discover -s tests     # 52 offline tests — prove the machinery first
+PYTHONPATH=src python3 -m unittest discover -s tests     # 52 offline tests — prove the machinery first
 python3 examples/demo_session.py          # watch a session run LOCKED -> DONE
 ```
 

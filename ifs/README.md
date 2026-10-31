@@ -37,7 +37,9 @@ cd ifs
 python3 -m unittest discover -s tests     # 64 offline tests — prove the machinery first
 ```
 
-To run a real interrogation, you need a backend — any LLM that can follow the protocol prompt:
+To run a real interrogation, you need a backend — any LLM that can follow the protocol prompt.
+
+Prerequisite: install and start Ollama and pass `--ollama <model>`, or export `OPENROUTER_MODEL` and `OPENROUTER_API_KEY`. Otherwise `run_local.py` stops with 'No backend selected.'
 
 ```bash
 # Fully offline: local Ollama
