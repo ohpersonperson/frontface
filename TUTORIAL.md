@@ -28,7 +28,7 @@ done
 PYTHONPATH="meminqu/src:memdate/src" python3 -m pytest meminqu/tests/ -q
 ```
 
-Expect eight green summaries, one per package, in this order: 64, 55 (+5 subtests), 52 (+5 subtests), 79, 87, 86, 121, 51 passed — 595 in total. If any step is not green, stop — the rest of this tutorial assumes a green tree.
+Expect eight green summaries, one per package, in this order: 64, 55 (+5 subtests), 52 (+5 subtests), 79, 87, 86, 123, 51 passed — 597 in total. Re-run 2026-11-10 (proofit 121 → 123 with the 1.2.1 template fix). If any step is not green, stop — the rest of this tutorial assumes a green tree.
 
 ## 2. The map (read this before you type `cd`)
 

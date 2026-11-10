@@ -63,7 +63,7 @@ step, not inside the loop above:
 PYTHONPATH="meminqu/src:memdate/src" python -m pytest meminqu/tests/ -q
 ```
 
-595 tests, all green, all offline (pytest passed count; two packages also report subtests separately).
+597 tests, all green, all offline (pytest passed count; two packages also report subtests separately). Re-run 2026-11-10.
 
 ## Note
 
