@@ -49,6 +49,35 @@ class TestCLI(unittest.TestCase):
         self.assertIn("lint", r.stdout)
 
 
+class TestTemplatePackaging(unittest.TestCase):
+    """The template ships in the wheel (1.2.0 bug: it did not).
+
+    `proofit/templates/runbook-template.md` is the canonical file —
+    the live demo page fetches it from the repo — and
+    `src/proofit/templates/runbook-template.md` is the packaged copy.
+    The two must stay byte-identical, and `proofit template` must
+    print exactly that file, from a pip install as well as from source.
+    """
+
+    def test_packaged_template_matches_repo_template(self):
+        sys.path.insert(0, os.path.join(PKG, "src"))
+        from importlib import resources
+        packaged = (resources.files("proofit") / "templates"
+                    / "runbook-template.md").read_bytes()
+        with open(os.path.join(PKG, "templates",
+                               "runbook-template.md"), "rb") as f:
+            repo = f.read()
+        self.assertEqual(packaged, repo)
+
+    def test_template_command_prints_repo_template(self):
+        r = run_cli("template")
+        self.assertEqual(r.returncode, 0)
+        with open(os.path.join(PKG, "templates",
+                               "runbook-template.md"),
+                  encoding="utf-8") as f:
+            self.assertEqual(r.stdout, f.read())
+
+
 # PARAM-PROOFIT-001: WARNINGs pass by default, fail under --strict;
 # ERRORs fail in both modes.
 R1_ONLY = """# Runbook: test

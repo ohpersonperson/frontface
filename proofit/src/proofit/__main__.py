@@ -13,9 +13,25 @@ from . import __version__, lint_file
 from .ledger import Ledger
 
 
-def _template_path() -> str:
+def _template_text() -> str:
+    """Blank runbook template text.
+
+    Packaged copy first (``src/proofit/templates/`` ships in the wheel
+    as package data, so this works from a pip install), repo-layout
+    copy as fallback (``proofit/templates/`` — the file the live demo
+    page fetches from the repo, which must stay at that path).
+    """
+    try:
+        from importlib import resources
+        return (resources.files("proofit") / "templates"
+                / "runbook-template.md").read_text(encoding="utf-8")
+    except (ImportError, OSError):
+        pass
     here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(here, "..", "..", "templates", "runbook-template.md"))
+    repo_path = os.path.normpath(os.path.join(
+        here, "..", "..", "templates", "runbook-template.md"))
+    with open(repo_path, encoding="utf-8") as f:
+        return f.read()
 
 
 def cmd_lint(path: str, *, strict: bool = False) -> int:
@@ -103,12 +119,10 @@ def cmd_ledger(argv: list[str]) -> int:
 
 
 def cmd_template() -> int:
-    path = _template_path()
     try:
-        with open(path, encoding="utf-8") as f:
-            sys.stdout.write(f.read())
+        sys.stdout.write(_template_text())
     except OSError as e:
-        print(f"error: template not found at {path}: {e}", file=sys.stderr)
+        print(f"error: template not found: {e}", file=sys.stderr)
         return 2
     return 0
 

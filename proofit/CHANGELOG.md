@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## Unreleased
+
+- `proofit template` works from a pip install. At 1.2.0 the wheel
+  shipped no template and the lookup pointed at the repo layout, so
+  the command failed with exit 2 ("template not found") for anyone
+  who installed from PyPI — the cold-run stranger's first command.
+  The template now ships as package data
+  (`src/proofit/templates/runbook-template.md`, byte-identical to the
+  canonical `proofit/templates/runbook-template.md`, guarded by a
+  test), and the lookup reads it via `importlib.resources` with the
+  repo-layout path as fallback. No version bump: this ships with the
+  next release, whenever that is tagged.
+
 ## 1.2.0 — 2026-10-15
 
 The 1337 module lands as proofit rules R11–R14 (new `src/proofit/leet.py`,
