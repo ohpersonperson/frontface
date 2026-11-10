@@ -1,0 +1,26 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run the test loop (TUTORIAL.md section 1)
+        run: |
+          for d in ifs metacog flashy memdate probe-forge audit proofit; do
+            PYTHONPATH="$d/src" python -m pytest "$d/tests/" -q
+          done
+          PYTHONPATH="meminqu/src:memdate/src" python -m pytest meminqu/tests/ -q
