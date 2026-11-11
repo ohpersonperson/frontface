@@ -1,5 +1,9 @@
 # Changelog — postmo
 
+## 1.2.1 — 2026-11-11
+
+- Uniform version bump to 1.2.1 (uniform versioning across all eight packages). No code changes in this package; the release carries the proofit template fix.
+
 ## 1.2.0 — 2026-10-15
 
 - PARAM-POSTMO-002: D3 typing-coverage surfaced in the final report (CorrectionCoverage rows: typed/candidate/unmarked/unmatched).

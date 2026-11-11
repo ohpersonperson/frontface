@@ -5,6 +5,10 @@ skill-suite, MIT — itself a port of an execution-discipline protocol into
 skill format) into front-facing, production-ready code. This changelog
 doubles as the decoupling record: every entry names what was changed and why.
 
+## 1.2.1 — 2026-11-11
+
+- Uniform version bump to 1.2.1 (uniform versioning across all eight packages). No code changes in this package; the release carries the proofit template fix.
+
 ## 1.2.0 — 2026-10-15
 
 - PARAM-FLASHY-011: honest trust-contract labeling (docs only).

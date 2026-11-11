@@ -4,6 +4,10 @@ All notable changes. The package converts the `metacog` skill v2.0 (Ryan's
 skill-suite, MIT) into front-facing, production-ready code. This changelog
 doubles as the decoupling record: every entry names what was changed and why.
 
+## 1.2.1 — 2026-11-11
+
+- Uniform version bump to 1.2.1 (uniform versioning across all eight packages). No code changes in this package; the release carries the proofit template fix.
+
 ## 1.2.0 — 2026-10-15
 
 - PARAM-METACOG-016: `parse_model_json` now parses the last balanced JSON object (handles trailing prose from chatty models).

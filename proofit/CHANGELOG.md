@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 1.2.1 — 2026-11-11
 
 - `proofit template` works from a pip install. At 1.2.0 the wheel
   shipped no template and the lookup pointed at the repo layout, so

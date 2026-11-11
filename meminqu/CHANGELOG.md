@@ -1,5 +1,9 @@
 # Changelog — meminqu
 
+## 1.2.1 — 2026-11-11
+
+- Uniform version bump to 1.2.1 (uniform versioning across all eight packages). No code changes in this package; the release carries the proofit template fix.
+
 ## 1.2.0 — 2026-10-15
 
 - PARAM-MEMINQU-013: `submit_answers` asserts cycle membership (same bar as start_domain/skip_domain), with an explicit `allow_off_cycle` override flag.

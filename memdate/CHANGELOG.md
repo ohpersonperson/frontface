@@ -5,6 +5,10 @@ All notable changes. The package converts the `memdate-v2` skill
 This changelog doubles as the decoupling record: every entry names what
 was changed and why.
 
+## 1.2.1 — 2026-11-11
+
+- Uniform version bump to 1.2.1 (uniform versioning across all eight packages). No code changes in this package; the release carries the proofit template fix.
+
 ## 1.2.0 — 2026-10-15
 
 - Version bump only; no code changes since 1.1.0.
