@@ -10,8 +10,8 @@ repo and the demo stop living in different places:
   no key; nothing leaves the page.
 
 Both run fully client-side via Pyodide and install the pinned package
-from PyPI in the browser (`pressit==1.2.0`,
-`frontface-proofit==1.2.0`).
+from PyPI in the browser (`pressit==1.2.1`,
+`frontface-proofit==1.2.1`).
 
 ## Live hosts
 
