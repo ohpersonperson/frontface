@@ -67,7 +67,7 @@ const BOOT = `
 import os
 os.environ["FRONTFACE_NO_LEDGER"] = "1"
 import micropip
-await micropip.install("pressit==1.2.0")
+await micropip.install("pressit==1.2.1")
 import json, datetime
 from pressit import FieldInput, EvidenceItem, run
 from pressit import artifact as art, protocol as proto
@@ -163,9 +163,9 @@ async function boot() {
     pyodide = await loadPyodide();
     set("loading micropip…");
     await pyodide.loadPackage("micropip");
-    set("installing pressit 1.2.0 from PyPI…");
+    set("installing pressit 1.2.1 from PyPI…");
     await pyodide.runPythonAsync(BOOT);
-    set("ready. pressit 1.2.0 is running in this page.");
+    set("ready. pressit 1.2.1 is running in this page.");
     document.getElementById('prescan').disabled = false;
     document.getElementById('gorun').disabled = false;
   } catch (e) {

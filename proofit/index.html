@@ -57,7 +57,7 @@ Done when the status page displays "connected".
 <pre id="out">lint output lands here.</pre>
 
 <h2>See a finished result first — no download needed</h2>
-<p class="note">Canned result: the draft already loaded above, linted with proofit 1.2.0. Press "lint it" once the page is ready for the live version.</p>
+<p class="note">Canned result: the draft already loaded above, linted with proofit 1.2.1. Press "lint it" once the page is ready for the live version.</p>
 <pre>FAIL — draft rejected
 errors: 12, warnings: 1, waived: 0
 
@@ -96,7 +96,7 @@ const set = (t) => statusEl.textContent = t;
 
 const BOOT = `
 import micropip
-await micropip.install("frontface-proofit==1.2.0")
+await micropip.install("frontface-proofit==1.2.1")
 from proofit import lint_text
 print("proofit ready")
 `;
@@ -199,9 +199,9 @@ async function boot() {
     pyodide = await loadPyodide();
     set("loading micropip…");
     await pyodide.loadPackage("micropip");
-    set("installing frontface-proofit 1.2.0 from PyPI…");
+    set("installing frontface-proofit 1.2.1 from PyPI…");
     await pyodide.runPythonAsync(BOOT);
-    set("ready. proofit 1.2.0 is running in this page.");
+    set("ready. proofit 1.2.1 is running in this page.");
     document.getElementById('lint').disabled = false;
     document.getElementById('template').disabled = false;
     document.getElementById('clean').disabled = false;
